@@ -1,0 +1,27 @@
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+}
+
+.header {
+  margin-bottom: 40px;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.formWrapper {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px;
+}
