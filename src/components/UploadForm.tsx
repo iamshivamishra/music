@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./UploadForm.module.css";
 
@@ -12,7 +12,9 @@ export default function UploadForm() {
     album: "",
     genre: "",
     price: "49",
+    playlistId: "",
   });
+  const [playlists, setPlaylists] = useState<{ _id: string; name: string }[]>([]);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,9 +22,17 @@ export default function UploadForm() {
   const [success, setSuccess] = useState("");
   const [progress, setProgress] = useState("");
 
+  // Playlists fetch karo
+  useEffect(() => {
+    fetch("/api/playlists")
+      .then((res) => res.json())
+      .then((data) => setPlaylists(data.playlists || []));
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!audioFile) return setError("Audio file select karo");
+    if (!form.playlistId) return setError("Playlist/Folder select karo");
 
     setError("");
     setSuccess("");
@@ -36,6 +46,7 @@ export default function UploadForm() {
       formData.append("album", form.album);
       formData.append("genre", form.genre);
       formData.append("price", form.price);
+      formData.append("playlistId", form.playlistId);
       formData.append("audio", audioFile);
       if (coverFile) formData.append("cover", coverFile);
 
@@ -52,7 +63,7 @@ export default function UploadForm() {
       }
 
       setSuccess(`"${form.title}" upload ho gaya! 🎵`);
-      setForm({ title: "", artist: "", album: "", genre: "", price: "49" });
+      setForm({ title: "", artist: "", album: "", genre: "", price: "49", playlistId: "" });
       setAudioFile(null);
       setCoverFile(null);
       setProgress("");
@@ -122,6 +133,23 @@ export default function UploadForm() {
             min="1"
             required
           />
+        </div>
+
+        {/* Playlist Dropdown */}
+        <div className={styles.field}>
+          <label>Playlist/Folder *</label>
+          <select
+            value={form.playlistId}
+            onChange={(e) => setForm({ ...form, playlistId: e.target.value })}
+            required
+          >
+            <option value="">-- Folder select karo --</option>
+            {playlists.map((p) => (
+              <option key={p._id} value={p._id}>
+                📁 {p.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

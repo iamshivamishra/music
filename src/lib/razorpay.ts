@@ -12,7 +12,7 @@ export async function createOrder(amount: number, songId: string) {
   const order = await razorpay.orders.create({
     amount: amount * 100, // paise mein (INR × 100)
     currency: "INR",
-    receipt: `song_${songId}_${Date.now()}`,
+    receipt: `rcpt_${Date.now()}`,
     notes: { songId },
   });
   return order;

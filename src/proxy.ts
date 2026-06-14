@@ -9,7 +9,7 @@ const ADMIN_ROUTES = ["/upload"];
 // Ye routes logged-in users ko nahi dikhni chahiye (login/signup)
 const AUTH_ROUTES = ["/login", "/signup"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("music_token")?.value;
 

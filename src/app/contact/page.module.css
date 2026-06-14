@@ -1,0 +1,170 @@
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 64px 24px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.badge {
+  display: inline-block;
+  background: rgba(124, 92, 252, 0.15);
+  color: #7c5cfc;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+
+.title {
+  font-size: 3.2rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+
+.subtitle {
+  max-width: 600px;
+  margin: 0 auto;
+  color: #a0a0a0;
+  line-height: 1.8;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 30px;
+}
+
+.formCard,
+.infoCard,
+.followCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+}
+
+.formCard {
+  padding: 32px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  color: #b0b0b0;
+  font-size: 0.9rem;
+}
+
+.field input,
+.field textarea {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  color: white;
+  outline: none;
+  transition: 0.3s;
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color: #7c5cfc;
+}
+
+.field textarea {
+  resize: none;
+}
+
+.submitBtn {
+  border: none;
+  cursor: pointer;
+  padding: 14px;
+  border-radius: 14px;
+  background: #7c5cfc;
+  color: white;
+  font-weight: 700;
+  transition: 0.3s;
+}
+
+.submitBtn:hover {
+  transform: translateY(-2px);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.infoCard,
+.followCard {
+  padding: 24px;
+}
+
+.infoCard span,
+.followCard span {
+  font-size: 2rem;
+}
+
+.infoCard h3,
+.followCard h3 {
+  margin: 12px 0 8px;
+}
+
+.infoCard p,
+.followCard p {
+  color: #a0a0a0;
+  line-height: 1.6;
+}
+
+.followCard {
+  background: linear-gradient(
+    135deg,
+    rgba(124, 92, 252, 0.12),
+    rgba(124, 92, 252, 0.03)
+  );
+  border-color: rgba(124, 92, 252, 0.25);
+}
+
+.success {
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.successIcon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 14px;
+}
+
+.success p {
+  color: #a0a0a0;
+  margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .title {
+    font-size: 2.3rem;
+  }
+
+  .formCard {
+    padding: 24px;
+  }
+}

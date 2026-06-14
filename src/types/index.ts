@@ -13,11 +13,21 @@ export interface ISong {
   artist: string;
   album?: string;
   genre?: string;
-  duration: number; // seconds
-  price: number; // INR
-  audioUrl: string; // Cloudinary URL
-  coverUrl?: string; // Cloudinary URL
+  duration: number;
+  price: number;
+  audioUrl: string;
+  coverUrl?: string;
   uploadedBy: string;
+  playlistId?: string; // 👈 naya field
+  createdAt: Date;
+}
+
+export interface IPlaylist {
+  _id: string;
+  name: string;
+  description?: string;
+  coverUrl?: string;
+  createdBy: string;
   createdAt: Date;
 }
 

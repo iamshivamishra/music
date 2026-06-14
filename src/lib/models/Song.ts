@@ -7,11 +7,12 @@ const SongSchema = new Schema<ISong>(
     artist: { type: String, required: true, trim: true },
     album: { type: String, trim: true },
     genre: { type: String, trim: true },
-    duration: { type: Number, default: 0 }, // seconds
-    price: { type: Number, required: true, default: 49 }, // INR
+    duration: { type: Number, default: 0 },
+    price: { type: Number, required: true, default: 49 },
     audioUrl: { type: String, required: true },
     coverUrl: { type: String, default: "" },
-    uploadedBy: { type: String, required: true }, // user ID
+    uploadedBy: { type: String, required: true },
+    playlistId: { type: String, default: "" }, // 👈 naya field
   },
   { timestamps: true }
 );

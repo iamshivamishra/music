@@ -11,7 +11,7 @@ async function getRecentSongs() {
     const songs = await Song.find({})
       .select("-audioUrl")
       .sort({ createdAt: -1 })
-      .limit(6)
+      .limit(4)
       .lean();
     return JSON.parse(JSON.stringify(songs)) as ISong[];
   } catch {
@@ -245,15 +245,15 @@ export default async function HomePage() {
         <img src="https://m.media-amazon.com/images/I/51rttY7a+9L._h1_.png" alt="Spotify" />
       </a>
 
-      <a href="#" className={styles.iconBtn} title="YouTube">
+      <a href="https://tr.ee/7kRtfV-ykg" className={styles.iconBtn} title="YouTube">
         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/YouTube_full-color_icon_%282017%29.svg/1280px-YouTube_full-color_icon_%282017%29.svg.png" alt="YouTube" />
       </a>
 
-      <a href="#" className={styles.iconBtn} title="Instagram">
+      <a href="https://tr.ee/1eJUtid8So" className={styles.iconBtn} title="Instagram">
         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Instagram_logo_2016.svg/250px-Instagram_logo_2016.svg.png" alt="Instagram" />
       </a>
 
-      <a href="#" className={styles.iconBtn} title="WhatsApp">
+      <a href="https://tr.ee/qlnYdUwBzs" className={styles.iconBtn} title="WhatsApp">
         <img src="https://img.magnific.com/premium-vector/whatsapp-app-round-icon-popular-messenger-social-media-logo_277909-873.jpg?semt=ais_hybrid&w=740&q=80" alt="WhatsApp" />
       </a>
     </div>

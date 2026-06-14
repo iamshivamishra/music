@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     const album = formData.get("album") as string;
     const genre = formData.get("genre") as string;
     const price = Number(formData.get("price")) || 49;
+    const playlistId = formData.get("playlistId") as string; // 👈 naya
     const audioFile = formData.get("audio") as File;
     const coverFile = formData.get("cover") as File | null;
 
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
       coverUrl,
       duration: Math.round(audioResult.duration),
       uploadedBy: user.userId,
+      playlistId: playlistId || "", // 👈 naya
     });
 
     return NextResponse.json(

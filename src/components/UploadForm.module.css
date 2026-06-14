@@ -170,3 +170,25 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.field select {
+  padding: 11px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.field select:focus {
+  border-color: var(--primary);
+}
+
+.field select option {
+  background: var(--bg3);
+  color: var(--text);
+}
