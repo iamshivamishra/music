@@ -14,7 +14,9 @@ interface PageProps {
 
 async function getSongData(id: string) {
   await connectDB();
-  const song = await Song.findById(id).lean() as unknown as ISong & { audioUrl: string };
+  const song = (await Song.findById(id).lean()) as unknown as ISong & {
+    audioUrl: string;
+  };
   return song;
 }
 
@@ -76,11 +78,13 @@ export default async function SongPage({ params }: PageProps) {
 
           <h1 className={styles.title}>{song.title}</h1>
           <p className={styles.artist}>{song.artist}</p>
-          {song.album && <p className={styles.album}>Album: {song.album}</p>}
+          {song.album && <p className={styles.album}>Album — {song.album}</p>}
 
           <div className={styles.details}>
             <span>⏱ {formatDuration(song.duration)}</span>
-            {!hasPurchased && <span className={styles.price}>₹{song.price}</span>}
+            {!hasPurchased && (
+              <span className={styles.price}>₹{song.price}</span>
+            )}
           </div>
 
           {/* Client component handles player + payment */}

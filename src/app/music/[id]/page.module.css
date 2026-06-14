@@ -247,3 +247,33 @@
     transform: translateY(0);
   }
 }
+
+
+.downloadBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  border-radius: 16px;
+  background: rgba(76, 175, 118, 0.1);
+  border: 1px solid rgba(76, 175, 118, 0.3);
+  color: var(--success);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.downloadBtn:hover {
+  background: var(--success);
+  color: white;
+  transform: scale(1.02);
+}
+
+.downloadBtn:active {
+  transform: scale(0.98);
+}
+
+.downloadIcon {
+  font-size: 1.1rem;
+}

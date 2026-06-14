@@ -39,7 +39,6 @@ export async function POST(req: NextRequest) {
       role: user.role,
     });
 
-    // Cookie directly NextResponse mein set karo
     const response = NextResponse.json({
       message: "Login successful!",
       user: {
@@ -50,13 +49,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
-   response.cookies.set("music_token", token, {
-  httpOnly: true,
-  secure: true,        
-  sameSite: "lax",
-  maxAge: 60 * 60 * 24 * 7,
-  path: "/",
-});
+    const isSecure =
+      req.nextUrl.protocol === "https:" ||
+      req.headers.get("x-forwarded-proto") === "https";
+
+    response.cookies.set("music_token", token, {
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
 
     return response;
   } catch (err) {

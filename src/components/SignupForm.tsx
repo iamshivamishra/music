@@ -64,7 +64,7 @@ export default function SignupForm() {
         )}
 
         <div className={styles.field}>
-          <label htmlFor="name">Naam</label>
+          <label htmlFor="name">Name</label>
 
           <input
             id="name"
@@ -124,13 +124,13 @@ export default function SignupForm() {
           disabled={loading}
         >
           {loading
-            ? "Account ban raha hai..."
-            : "Account banao"}
+            ? "Loading..."
+            : "Signup"}
         </button>
       </form>
 
       <p className={styles.switchLink}>
-        Already account hai?{" "}
+        Already account an Account?{" "}
         <Link href="/login">
           Login 
         </Link>

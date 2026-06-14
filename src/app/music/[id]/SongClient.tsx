@@ -44,6 +44,17 @@ export default function SongClient({
               onBuyClick={() => setShowPayment(true)}
             />
           </div>
+
+          {/* Download Button - sirf purchased users ke liye */}
+          {hasPurchased && audioUrl && (
+            <a
+              href={`/api/songs/${songId}/download`}
+              className={styles.downloadBtn}
+            >
+              <span className={styles.downloadIcon}>⬇️</span>
+              Download Song
+            </a>
+          )}
         </>
       ) : null}
 

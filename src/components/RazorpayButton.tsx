@@ -67,7 +67,7 @@ export default function RazorpayButton({
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: price * 100,
         currency: "INR",
-        name: "SoundWave",
+        name: "Trishul Beats",
         description: `Song: ${songTitle}`,
         order_id: orderData.orderId,
 
