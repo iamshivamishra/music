@@ -22,7 +22,7 @@ export default function AudioPlayer({
   const [duration, setDuration] = useState(0);
   const [previewEnded, setPreviewEnded] = useState(false);
 
-  const PREVIEW_LIMIT = 3;
+  const PREVIEW_LIMIT = 30;
 
   useEffect(() => {
     const audio = audioRef.current;
