@@ -1,171 +1,148 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Loader2, ShoppingCart } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface RazorpayButtonProps {
-  songId: string;
-  songTitle: string;
+  beatId: string;
+  licenseId: string;
   price: number;
+  beatTitle: string;
+  licenseType: string;
+  disabled?: boolean;
 }
 
 declare global {
   interface Window {
-    Razorpay: any;
+    Razorpay: new (options: Record<string, unknown>) => { open: () => void };
   }
 }
 
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+export { loadRazorpayScript };
+
 export default function RazorpayButton({
-  songId,
-  songTitle,
+  beatId,
+  licenseId,
   price,
+  beatTitle,
+  licenseType,
+  disabled,
 }: RazorpayButtonProps) {
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
-
-  const loadRazorpay = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if (window.Razorpay) return resolve(true);
-
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-
-      document.body.appendChild(script);
-    });
-  };
+  const [loading, setLoading] = useState(false);
 
   const handlePayment = async () => {
     setLoading(true);
-
     try {
-      const loaded = await loadRazorpay();
-
+      const loaded = await loadRazorpayScript();
       if (!loaded) {
-        alert("Razorpay load nahi hua. Internet check karo.");
+        toast.error("Failed to load payment gateway");
         return;
       }
 
-      const orderRes = await fetch("/api/payment/create-order", {
+      const res = await fetch("/api/payment/create-order", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ songId }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ beatId, licenseId }),
       });
 
-      const orderData = await orderRes.json();
-
-      if (!orderRes.ok) {
-        alert(orderData.error || "Order create nahi hua");
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to create order");
         return;
       }
 
-      const options = {
+      const { orderId, amount } = await res.json();
+
+      const razorpay = new window.Razorpay({
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: price * 100,
+        amount: amount * 100,
         currency: "INR",
         name: "Trishul Beats",
-        description: `Song: ${songTitle}`,
-        order_id: orderData.orderId,
-
+        description: `${licenseType} License — ${beatTitle}`,
+        order_id: orderId,
         handler: async (response: {
           razorpay_order_id: string;
           razorpay_payment_id: string;
           razorpay_signature: string;
         }) => {
-          const verifyRes = await fetch("/api/payment/verify", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              songId,
-            }),
-          });
+          try {
+            const verifyRes = await fetch("/api/payment/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderId: response.razorpay_order_id,
+                paymentId: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+              }),
+            });
 
-          const verifyData = await verifyRes.json();
-
-          if (verifyRes.ok) {
-            alert("🎵 Payment successful! Song unlock ho gaya!");
-            router.refresh();
-          } else {
-            alert(verifyData.error || "Payment verify nahi hua");
+            if (verifyRes.ok) {
+              toast.success("Payment successful! Beat purchased.");
+              router.refresh();
+            } else {
+              const data = await verifyRes.json();
+              toast.error(data.error || "Payment verification failed");
+            }
+          } catch {
+            toast.error("Something went wrong during verification");
           }
         },
-
-        prefill: {
-          name: "",
-          email: "",
-        },
-
-        theme: {
-          color: "#7c5cfc",
-        },
-
         modal: {
-          ondismiss: () => setLoading(false),
+          ondismiss: async () => {
+            await fetch("/api/payment/fail", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                orderId,
+                reason: "Payment cancelled by user",
+              }),
+            }).catch(() => {});
+          },
         },
-      };
+        theme: { color: "#c2410c" },
+      });
 
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } catch (err) {
-      console.error("Payment error:", err);
-      alert("Payment mein problem aayi");
+      razorpay.open();
+    } catch {
+      toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <button
-        onClick={handlePayment}
-        disabled={loading}
-        className="buyBtn"
-      >
-        {loading
-          ? "Processing..."
-          : `₹${price} mein khareedein 🎵`}
-      </button>
-
-      <style jsx>{`
-        .buyBtn {
-          width: 100%;
-          padding: 14px 24px;
-          border-radius: 12px;
-          background: var(--primary);
-          color: white;
-          font-size: 1rem;
-          font-weight: 600;
-          border: none;
-          cursor: pointer;
-          transition: background 0.2s, transform 0.1s;
-        }
-
-        .buyBtn:hover:not(:disabled) {
-          background: var(--primary-hover);
-          transform: scale(1.02);
-        }
-
-        .buyBtn:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        @media (max-width: 768px) {
-          .buyBtn {
-            padding: 12px 18px;
-            font-size: 0.95rem;
-          }
-        }
-      `}</style>
-    </>
+    <Button
+      onClick={handlePayment}
+      disabled={loading || disabled}
+      className="w-full"
+      size="lg"
+    >
+      {loading ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Processing...
+        </>
+      ) : (
+        <>
+          <ShoppingCart className="mr-2 h-4 w-4" />
+          Buy Now — ₹{price.toLocaleString()}
+        </>
+      )}
+    </Button>
   );
 }

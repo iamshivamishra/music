@@ -1,149 +1,77 @@
-"use client";
+import type { Metadata } from "next";
+import { Mail, MapPin } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
-import { useState } from "react";
-import styles from "./page.module.css";
+export const metadata: Metadata = {
+  title: "Contact",
+  description: "Get in touch with the Trishul Beats team.",
+};
 
 export default function ContactPage() {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    message: "",
-  });
-
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    setSubmitted(true);
-
-    setTimeout(() => {
-      setSubmitted(false);
-      setForm({
-        name: "",
-        email: "",
-        message: "",
-      });
-    }, 3000);
-  };
-
   return (
-    <div className={styles.page}>
-      {/* Header */}
-      <div className={styles.header}>
-        <div className={styles.badge}>💬 Get in Touch</div>
-
-        <h1 className={styles.title}>Contact Us</h1>
-
-        <p className={styles.subtitle}>
-          Have a question, suggestion, or just want to say hi? We'd love to
-          hear from you.
+    <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="mb-12 text-center">
+        <h1 className="text-4xl font-bold">Contact Us</h1>
+        <p className="mt-3 text-muted-foreground">
+          Have questions or feedback? We'd love to hear from you.
         </p>
       </div>
 
-      <div className={styles.grid}>
-        {/* Form */}
-        <div className={styles.formCard}>
-          {submitted ? (
-            <div className={styles.success}>
-              <span className={styles.successIcon}>✅</span>
-
-              <h3>Message Sent!</h3>
-
-              <p>
-                Thanks for reaching out. We'll get back to you soon.
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className={styles.form}>
-              <div className={styles.field}>
-                <label>Your Name</label>
-
-                <input
-                  type="text"
-                  required
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      name: e.target.value,
-                    })
-                  }
-                  placeholder="John Doe"
-                />
+      <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
+        <Card className="border-border/50 bg-card/80">
+          <CardHeader>
+            <CardTitle>Send a Message</CardTitle>
+            <CardDescription>Fill out the form and we'll get back to you soon.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="contact-name">Name</Label>
+                  <Input id="contact-name" placeholder="Your name" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contact-email">Email</Label>
+                  <Input id="contact-email" type="email" placeholder="you@example.com" required />
+                </div>
               </div>
-
-              <div className={styles.field}>
-                <label>Email Address</label>
-
-                <input
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      email: e.target.value,
-                    })
-                  }
-                  placeholder="you@example.com"
-                />
+              <div className="space-y-2">
+                <Label htmlFor="contact-subject">Subject</Label>
+                <Input id="contact-subject" placeholder="What's this about?" required />
               </div>
-
-              <div className={styles.field}>
-                <label>Message</label>
-
-                <textarea
+              <div className="space-y-2">
+                <Label htmlFor="contact-message">Message</Label>
+                <Textarea
+                  id="contact-message"
+                  placeholder="Your message..."
                   rows={5}
                   required
-                  value={form.message}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      message: e.target.value,
-                    })
-                  }
-                  placeholder="Tell us what's on your mind..."
                 />
               </div>
-
-              <button
-                type="submit"
-                className={styles.submitBtn}
-              >
-                Send Message →
-              </button>
+              <Button type="submit" className="w-full sm:w-auto">Send Message</Button>
             </form>
-          )}
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Sidebar */}
-        <div className={styles.sidebar}>
-          <div className={styles.infoCard}>
-            <span>📧</span>
-            <h3>Email</h3>
-            <p>support@trishulbeats.com</p>
-          </div>
-
-          <div className={styles.infoCard}>
-            <span>📍</span>
-            <h3>Location</h3>
-            <p>India</p>
-          </div>
-
-          <div className={styles.infoCard}>
-            <span>⏰</span>
-            <h3>Response Time</h3>
-            <p>We usually reply within 24 hours</p>
-          </div>
-
-          <div className={styles.followCard}>
-            <span>🎵</span>
-            <h3>Follow Us</h3>
-            <p>
-              Stay updated with our latest releases on social media.
-            </p>
-          </div>
+        <div className="space-y-4">
+          <Card className="border-border/50 bg-card/80">
+            <CardContent className="p-5">
+              <Mail className="mb-2 h-5 w-5 text-primary" />
+              <h3 className="text-sm font-semibold">Email</h3>
+              <p className="mt-1 text-sm text-muted-foreground">contact@trishulbeats.com</p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 bg-card/80">
+            <CardContent className="p-5">
+              <MapPin className="mb-2 h-5 w-5 text-primary" />
+              <h3 className="text-sm font-semibold">Location</h3>
+              <p className="mt-1 text-sm text-muted-foreground">India</p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

@@ -1,56 +1,25 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { verifySignature } from "@/lib/razorpay";
-import { connectDB } from "@/lib/db";
-import Song from "@/lib/models/Song";
-import Purchase from "@/lib/models/Purchase";
+import { NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
+import { paymentService } from "@/lib/services/payment.service";
+import { verifyPaymentSchema } from "@/lib/validators/payment";
+import { formatErrorResponse, UnauthorizedError } from "@/lib/errors";
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await auth();
+    if (!session?.user) throw new UnauthorizedError();
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, songId } =
-      await req.json();
+    const body = await request.json();
+    const input = verifyPaymentSchema.parse(body);
 
-    // Signature verify karo
-    const isValid = verifySignature(
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature
-    );
+    const result = await paymentService.verifyAndRecord(input, session.user.id);
 
-    if (!isValid) {
-      return NextResponse.json(
-        { error: "Payment verify nahi hua - invalid signature" },
-        { status: 400 }
-      );
-    }
-
-    await connectDB();
-
-    const song = await Song.findById(songId);
-    if (!song) {
-      return NextResponse.json({ error: "Song nahi mila" }, { status: 404 });
-    }
-
-    // Purchase record save karo
-    await Purchase.create({
-      userId: user.userId,
-      songId,
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      amount: song.price,
+    return Response.json({
+      success: true,
+      order: result.order,
+      purchases: result.purchases,
     });
-
-    return NextResponse.json({
-      message: "Payment successful! Song unlock ho gaya 🎵",
-      songId,
-    });
-  } catch (err) {
-    console.error("Payment verify error:", err);
-    return NextResponse.json({ error: "Verification failed" }, { status: 500 });
+  } catch (error) {
+    return formatErrorResponse(error);
   }
 }

@@ -1,48 +1,174 @@
-﻿export interface IUser {
-  _id: string;
+import type { Types } from "mongoose";
+
+export type UserRole = "buyer" | "producer" | "admin";
+
+export interface IUser {
+  _id: string | Types.ObjectId;
   name: string;
   email: string;
-  password: string;
-  role: "user" | "admin";
+  image?: string;
+  password?: string;
+  role: UserRole;
+  username?: string;
+  displayName?: string;
+  bio?: string;
+  avatarUrl?: string;
+  coverImageUrl?: string;
+  genres?: string[];
+  socialLinks?: {
+    instagram?: string;
+    youtube?: string;
+    twitter?: string;
+    website?: string;
+    spotify?: string;
+    soundcloud?: string;
+  };
+  verified?: boolean;
+  followersCount?: number;
+  salesCount?: number;
   createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface ISong {
-  _id: string;
+export interface IBeatStorageKeys {
+  preview?: string;
+  master?: string;
+  stems?: string;
+  artwork?: string;
+}
+
+export type BeatStatus = "draft" | "published" | "archived";
+
+export interface IBeat {
+  _id: string | Types.ObjectId;
   title: string;
-  artist: string;
-  album?: string;
-  genre?: string;
+  description?: string;
+  producerId: string | Types.ObjectId;
+  bpm?: number;
+  key?: string;
+  genre: string;
+  tags: string[];
+  mood?: string;
   duration: number;
-  price: number;
-  audioUrl: string;
+  audioTaggedUrl: string;
+  audioFullUrl: string;
+  stemsUrl?: string;
   coverUrl?: string;
-  uploadedBy: string;
-  playlistId?: string; // 👈 naya field
+  storageKeys?: IBeatStorageKeys;
+  status: BeatStatus;
+  plays: number;
+  salesCount: number;
+  isPublished: boolean;
   createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface IPlaylist {
-  _id: string;
+export type LicenseType = "basic" | "premium" | "unlimited";
+
+export interface ILicense {
+  _id: string | Types.ObjectId;
+  beatId: string | Types.ObjectId;
+  type: LicenseType;
   name: string;
-  description?: string;
-  coverUrl?: string;
-  createdBy: string;
+  price: number;
+  streamLimit: number;
+  includesWav: boolean;
+  includesStems: boolean;
+  commercialUse: boolean;
+  terms: string;
+  isActive: boolean;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface IPurchase {
-  _id: string;
-  userId: string;
-  songId: string;
-  orderId: string; // Razorpay order ID
-  paymentId: string; // Razorpay payment ID
+  _id: string | Types.ObjectId;
+  buyerId: string | Types.ObjectId;
+  beatId: string | Types.ObjectId;
+  licenseId: string | Types.ObjectId;
+  licenseType: "basic" | "premium" | "unlimited" | "exclusive";
+  orderId: string;
+  paymentId: string;
   amount: number;
   createdAt: Date;
+  updatedAt: Date;
+}
+
+export type OrderStatus = "pending" | "paid" | "failed" | "refunded";
+
+export interface IOrderItem {
+  beatId: string | Types.ObjectId;
+  licenseId: string | Types.ObjectId;
+  licenseType: LicenseType;
+  price: number;
+  beatTitle: string;
+}
+
+export interface IOrder {
+  _id: string | Types.ObjectId;
+  buyerId: string | Types.ObjectId;
+  items: IOrderItem[];
+  totalAmount: number;
+  status: OrderStatus;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
+  receipt: string;
+  failureReason?: string;
+  paidAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ICartItem {
+  _id?: string | Types.ObjectId;
+  userId: string | Types.ObjectId;
+  beatId: string | Types.ObjectId;
+  licenseId: string | Types.ObjectId;
+  addedAt: Date;
+}
+
+export interface CartItemPopulated {
+  beatId: string;
+  licenseId: string;
+  beatTitle: string;
+  beatCoverUrl?: string;
+  beatGenre: string;
+  producerName: string;
+  licenseName: string;
+  licenseType: LicenseType;
+  price: number;
 }
 
 export interface JWTPayload {
   userId: string;
   email: string;
-  role: "user" | "admin";
+  role: UserRole;
+}
+
+export interface PaginationParams {
+  page: number;
+  limit: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface BeatFilters {
+  genre?: string;
+  bpm?: { min?: number; max?: number };
+  key?: string;
+  mood?: string;
+  tags?: string[];
+  search?: string;
+  producer?: string;
+  producerId?: string;
+  isPublished?: boolean;
 }

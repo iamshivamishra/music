@@ -1,23 +1,16 @@
-﻿import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { connectDB } from "@/lib/db";
-import Purchase from "@/lib/models/Purchase";
+import { auth } from "@/lib/auth";
+import { paymentService } from "@/lib/services/payment.service";
+import { formatErrorResponse, UnauthorizedError } from "@/lib/errors";
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ purchasedSongIds: [] });
-    }
+    const session = await auth();
+    if (!session?.user) throw new UnauthorizedError();
 
-    await connectDB();
+    const purchasedBeatIds = await paymentService.getPurchasedBeatIds(session.user.id);
 
-    const purchases = await Purchase.find({ userId: user.userId }).select("songId");
-    const purchasedSongIds = purchases.map((p) => p.songId.toString());
-
-    return NextResponse.json({ purchasedSongIds });
-  } catch (err) {
-    console.error("Purchases fetch error:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return Response.json({ purchasedBeatIds });
+  } catch (error) {
+    return formatErrorResponse(error);
   }
 }
