@@ -1,114 +1,39 @@
-import Link from "next/link";
-import styles from "./page.module.css";
+import type { Metadata } from "next";
+import { Music, Users, Shield, Zap } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+
+export const metadata: Metadata = {
+  title: "About",
+  description: "Learn about Trishul Beats — the marketplace connecting producers and artists.",
+};
 
 export default function AboutPage() {
-  const stats = [
-    { num: "1K+", label: "Songs" },
-    { num: "50+", label: "Artists" },
-    { num: "5+", label: "Genres" },
-    { num: "100%", label: "Free Previews" },
-  ];
-
-  const values = [
-    {
-      icon: "🎧",
-      title: "Free Previews",
-      desc: "Try before you buy — listen to 30 seconds of any track, completely free.",
-    },
-    {
-      icon: "🤝",
-      title: "Fair to Artists",
-      desc: "Every purchase directly supports the artist who created the music.",
-    },
-    {
-      icon: "🔓",
-      title: "Own What You Buy",
-      desc: "No subscriptions. Buy a song once, listen to it forever.",
-    },
-  ];
-
   return (
-    <div className={styles.page}>
-      {/* Hero */}
-      <section className={styles.hero}>
-        <div className={styles.badge}>🎵 About Us</div>
-
-        <h1 className={styles.title}>
-          We're building the future of
-          <br />
-          <span className={styles.gradientText}>music streaming</span>
-        </h1>
-
-        <p className={styles.subtitle}>
-          Trishul Beats was created with a simple mission — make great music
-          accessible to everyone, while supporting the artists who create it.
+    <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="mb-12 text-center">
+        <h1 className="text-4xl font-bold">About Trishul Beats</h1>
+        <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
+          We connect talented producers with artists looking for the perfect beat.
+          Browse, preview, license — all in one place.
         </p>
-      </section>
+      </div>
 
-      {/* Stats */}
-      <section className={styles.statsGrid}>
-        {stats.map((s) => (
-          <div key={s.label} className={styles.statCard}>
-            <div className={styles.statNumber}>{s.num}</div>
-            <div className={styles.statLabel}>{s.label}</div>
-          </div>
+      <div className="grid gap-6 sm:grid-cols-2">
+        {[
+          { icon: Music, title: "Quality Beats", desc: "Curated catalog of production-ready beats across every genre." },
+          { icon: Users, title: "For Everyone", desc: "Whether you're a buyer looking for beats or a producer selling them." },
+          { icon: Shield, title: "Secure Licensing", desc: "Clear license tiers (basic, premium, exclusive) with defined terms." },
+          { icon: Zap, title: "Instant Delivery", desc: "Purchase and download immediately. No waiting around." },
+        ].map((item) => (
+          <Card key={item.title} className="border-border/50 bg-card/80">
+            <CardContent className="p-6">
+              <item.icon className="mb-3 h-8 w-8 text-primary" />
+              <h3 className="text-lg font-semibold">{item.title}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{item.desc}</p>
+            </CardContent>
+          </Card>
         ))}
-      </section>
-
-      {/* Story */}
-      <section className={styles.storySection}>
-        <div>
-          <h2 className={styles.heading}>Our Story</h2>
-
-          <p className={styles.text}>
-            Trishul Beats started as a small project with one goal — give music
-            lovers a place where they can discover new sounds, listen to
-            previews for free, and support independent artists by purchasing
-            full tracks directly.
-          </p>
-
-          <p className={styles.text}>
-            No subscriptions. No ads. Just pay for what you love, and own it
-            forever.
-          </p>
-        </div>
-
-        <div className={styles.storyIconWrapper}>
-          <div className={styles.storyIcon}>🎵</div>
-        </div>
-      </section>
-
-      {/* Values */}
-      <section>
-        <h2 className={`${styles.heading} ${styles.center}`}>
-          What We Stand For
-        </h2>
-
-        <div className={styles.valuesGrid}>
-          {values.map((v) => (
-            <div key={v.title} className={styles.valueCard}>
-              <span className={styles.valueIcon}>{v.icon}</span>
-
-              <h3 className={styles.valueTitle}>{v.title}</h3>
-
-              <p className={styles.valueDesc}>{v.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className={styles.cta}>
-        <h2 className={styles.ctaTitle}>Ready to explore?</h2>
-
-        <p className={styles.ctaText}>
-          Join Trishul Beats and discover your next favorite song today.
-        </p>
-
-        <Link href="/music" className={styles.ctaButton}>
-          Browse Music →
-        </Link>
-      </section>
+      </div>
     </div>
   );
 }

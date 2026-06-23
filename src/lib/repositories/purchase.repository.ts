@@ -1,0 +1,293 @@
+import mongoose from "mongoose";
+import { connectDB } from "@/lib/db";
+import Purchase from "@/lib/models/Purchase";
+import type { IPurchase } from "@/types";
+
+export const purchaseRepository = {
+  async findByBuyerId(buyerId: string): Promise<IPurchase[]> {
+    await connectDB();
+    return Purchase.find({ buyerId })
+      .sort({ createdAt: -1 })
+      .lean<IPurchase[]>();
+  },
+
+  async findByBeatId(beatId: string): Promise<IPurchase[]> {
+    await connectDB();
+    return Purchase.find({ beatId })
+      .sort({ createdAt: -1 })
+      .lean<IPurchase[]>();
+  },
+
+  async hasPurchased(buyerId: string, beatId: string): Promise<boolean> {
+    await connectDB();
+    return (await Purchase.countDocuments({ buyerId, beatId })) > 0;
+  },
+
+  async findByBuyerAndBeat(buyerId: string, beatId: string): Promise<IPurchase[]> {
+    await connectDB();
+    return Purchase.find({ buyerId, beatId }).sort({ createdAt: -1 }).lean<IPurchase[]>();
+  },
+
+  async create(data: Partial<IPurchase>): Promise<IPurchase> {
+    await connectDB();
+    const purchase = await Purchase.create(data);
+    return purchase.toObject() as IPurchase;
+  },
+
+  async getPurchasedBeatIds(buyerId: string): Promise<string[]> {
+    await connectDB();
+    const purchases = await Purchase.find({ buyerId })
+      .select("beatId")
+      .lean<Pick<IPurchase, "beatId">[]>();
+    return purchases.map((p) => p.beatId.toString());
+  },
+
+  async getEarningsByProducer(producerId: string): Promise<number> {
+    await connectDB();
+    // Requires a join with Beat to filter by producerId
+    const result = await Purchase.aggregate([
+      {
+        $lookup: {
+          from: "beats",
+          localField: "beatId",
+          foreignField: "_id",
+          as: "beat",
+        },
+      },
+      { $unwind: "$beat" },
+      { $match: { "beat.producerId": producerId } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
+    return result[0]?.total ?? 0;
+  },
+
+  async countByBuyer(buyerId: string): Promise<number> {
+    await connectDB();
+    return Purchase.countDocuments({ buyerId });
+  },
+
+  async countByBeat(beatId: string): Promise<number> {
+    await connectDB();
+    return Purchase.countDocuments({ beatId });
+  },
+
+  /**
+   * Monthly revenue for a producer over the last N months.
+   */
+  async getMonthlyRevenue(
+    producerId: string,
+    months = 12
+  ): Promise<{ month: string; revenue: number; sales: number }[]> {
+    await connectDB();
+    const since = new Date();
+    since.setMonth(since.getMonth() - months);
+
+    const result = await Purchase.aggregate([
+      { $match: { createdAt: { $gte: since } } },
+      {
+        $lookup: {
+          from: "beats",
+          localField: "beatId",
+          foreignField: "_id",
+          as: "beat",
+        },
+      },
+      { $unwind: "$beat" },
+      {
+        $match: {
+          "beat.producerId": new mongoose.Types.ObjectId(producerId),
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
+          revenue: { $sum: "$amount" },
+          sales: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]);
+
+    const all: { month: string; revenue: number; sales: number }[] = [];
+    const now = new Date();
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      const label = `${d.toLocaleString("default", { month: "short" })} ${y}`;
+      const found = result.find(
+        (r: { _id: { year: number; month: number } }) =>
+          r._id.year === y && r._id.month === m
+      );
+      all.push({
+        month: label,
+        revenue: found?.revenue ?? 0,
+        sales: found?.sales ?? 0,
+      });
+    }
+
+    return all;
+  },
+
+  /**
+   * Top selling beats for a producer.
+   */
+  async getTopBeats(
+    producerId: string,
+    limit = 5
+  ): Promise<
+    { beatId: string; title: string; revenue: number; sales: number }[]
+  > {
+    await connectDB();
+    const result = await Purchase.aggregate([
+      {
+        $lookup: {
+          from: "beats",
+          localField: "beatId",
+          foreignField: "_id",
+          as: "beat",
+        },
+      },
+      { $unwind: "$beat" },
+      {
+        $match: {
+          "beat.producerId": new mongoose.Types.ObjectId(producerId),
+        },
+      },
+      {
+        $group: {
+          _id: "$beatId",
+          title: { $first: "$beat.title" },
+          revenue: { $sum: "$amount" },
+          sales: { $sum: 1 },
+        },
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: limit },
+    ]);
+
+    return result.map(
+      (r: { _id: unknown; title: string; revenue: number; sales: number }) => ({
+        beatId: r._id?.toString() ?? "",
+        title: r.title,
+        revenue: r.revenue,
+        sales: r.sales,
+      })
+    );
+  },
+
+  /**
+   * Recent sales for a producer with beat details.
+   */
+  async getProducerSales(
+    producerId: string,
+    page = 1,
+    limit = 20
+  ): Promise<{
+    data: {
+      purchaseId: string;
+      beatTitle: string;
+      beatId: string;
+      licenseType: string;
+      amount: number;
+      buyerName: string;
+      createdAt: Date;
+    }[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    await connectDB();
+
+    const pipeline: mongoose.PipelineStage[] = [
+      {
+        $lookup: {
+          from: "beats",
+          localField: "beatId",
+          foreignField: "_id",
+          as: "beat",
+        },
+      },
+      { $unwind: "$beat" },
+      {
+        $match: {
+          "beat.producerId": new mongoose.Types.ObjectId(producerId),
+        },
+      },
+      { $sort: { createdAt: -1 as const } },
+    ];
+
+    const countResult = await Purchase.aggregate([
+      ...pipeline,
+      { $count: "total" },
+    ]);
+    const total = countResult[0]?.total ?? 0;
+
+    const result = await Purchase.aggregate([
+      ...pipeline,
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "users",
+          localField: "buyerId",
+          foreignField: "_id",
+          as: "buyer",
+        },
+      },
+      { $unwind: { path: "$buyer", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          purchaseId: "$_id",
+          beatTitle: "$beat.title",
+          beatId: "$beatId",
+          licenseType: 1,
+          amount: 1,
+          buyerName: {
+            $ifNull: ["$buyer.displayName", "$buyer.name"],
+          },
+          createdAt: 1,
+        },
+      },
+    ]);
+
+    return {
+      data: result.map((r) => ({
+        ...r,
+        purchaseId: r.purchaseId?.toString() ?? r._id?.toString() ?? "",
+        beatId: r.beatId?.toString() ?? "",
+      })),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  },
+
+  /**
+   * Total sales count for a producer.
+   */
+  async countByProducer(producerId: string): Promise<number> {
+    await connectDB();
+    const result = await Purchase.aggregate([
+      {
+        $lookup: {
+          from: "beats",
+          localField: "beatId",
+          foreignField: "_id",
+          as: "beat",
+        },
+      },
+      { $unwind: "$beat" },
+      {
+        $match: {
+          "beat.producerId": new mongoose.Types.ObjectId(producerId),
+        },
+      },
+      { $count: "total" },
+    ]);
+    return result[0]?.total ?? 0;
+  },
+};

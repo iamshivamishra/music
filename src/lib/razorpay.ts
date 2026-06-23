@@ -1,22 +1,19 @@
-﻿export const razorpayClient = null;
-
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
-export const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID!,
-  key_secret: process.env.RAZORPAY_KEY_SECRET!,
-});
+let _razorpay: Razorpay | null = null;
 
-export async function createOrder(amount: number, songId: string) {
-  const order = await razorpay.orders.create({
-    amount: amount * 100, // paise mein (INR × 100)
-    currency: "INR",
-    receipt: `rcpt_${Date.now()}`,
-    notes: { songId },
-  });
-  return order;
-}
+export const razorpay = new Proxy({} as Razorpay, {
+  get(_target, prop) {
+    if (!_razorpay) {
+      _razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID!,
+        key_secret: process.env.RAZORPAY_KEY_SECRET!,
+      });
+    }
+    return (_razorpay as unknown as Record<string, unknown>)[prop as string];
+  },
+});
 
 export function verifySignature(
   orderId: string,

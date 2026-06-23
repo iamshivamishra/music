@@ -1,196 +1,189 @@
-﻿"use client";
+"use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { Play, Pause, Volume2, VolumeX } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import Waveform from "@/components/Waveform";
 
 interface AudioPlayerProps {
-  audioUrl: string | null;
-  previewUrl?: string;
-  hasPurchased: boolean;
-  songId: string;
-  onBuyClick: () => void;
+  src: string;
+  title: string;
+  previewOnly?: boolean;
+  beatId?: string;
+  showWaveform?: boolean;
+}
+
+const PREVIEW_LIMIT = 30;
+
+function formatTime(seconds: number): string {
+  const min = Math.floor(seconds / 60);
+  const sec = Math.floor(seconds % 60);
+  return `${min}:${sec.toString().padStart(2, "0")}`;
 }
 
 export default function AudioPlayer({
-  audioUrl,
-  hasPurchased,
-  onBuyClick,
+  src,
+  title,
+  previewOnly = false,
+  beatId,
+  showWaveform = false,
 }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
-
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [previewEnded, setPreviewEnded] = useState(false);
+  const [volume, setVolume] = useState(0.8);
+  const [isMuted, setIsMuted] = useState(false);
+  const playTracked = useRef(false);
 
-  const PREVIEW_LIMIT = 30;
+  const handleTimeUpdate = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    setCurrentTime(audio.currentTime);
+    if (previewOnly && audio.currentTime >= PREVIEW_LIMIT) {
+      audio.pause();
+      audio.currentTime = 0;
+      setIsPlaying(false);
+    }
+  }, [previewOnly]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    audio.volume = isMuted ? 0 : volume;
+  }, [volume, isMuted]);
 
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-      if (!hasPurchased && audio.currentTime >= PREVIEW_LIMIT) {
-        audio.pause();
-        setIsPlaying(false);
-        setPreviewEnded(true);
-      }
-    };
-
-    const handleLoadedMetadata = () => setDuration(audio.duration);
-    const handleEnded = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    };
-
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audio.addEventListener("ended", handleEnded);
-
-    return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audio.removeEventListener("ended", handleEnded);
-    };
-  }, [hasPurchased]);
-
-  const togglePlay = () => {
+  const togglePlay = async () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (previewEnded && !hasPurchased) return;
-
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
     } else {
-      audio.play();
+      await audio.play();
       setIsPlaying(true);
+      if (!playTracked.current && beatId) {
+        playTracked.current = true;
+        fetch(`/api/beats/${beatId}/plays`, { method: "POST" }).catch(() => {});
+      }
     }
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = (value: number | readonly number[]) => {
     const audio = audioRef.current;
-    if (!audio || !hasPurchased) return;
-    const time = Number(e.target.value);
+    if (!audio) return;
+    const time = typeof value === "number" ? value : value[0];
+    if (previewOnly && time > PREVIEW_LIMIT) return;
     audio.currentTime = time;
     setCurrentTime(time);
-    setPreviewEnded(false);
   };
 
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  };
+  const handleWaveformSeek = useCallback(
+    (time: number) => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      if (previewOnly && time > PREVIEW_LIMIT) return;
+      audio.currentTime = time;
+      setCurrentTime(time);
+    },
+    [previewOnly]
+  );
 
-  const progressPercent = duration ? (currentTime / duration) * 100 : 0;
+  const maxTime = previewOnly ? Math.min(duration, PREVIEW_LIMIT) : duration;
 
   return (
-    <>
-      <div className="bg-[var(--bg3)] border border-[var(--border)] rounded-2xl p-5 flex flex-col gap-3">
-        <audio ref={audioRef} src={audioUrl || undefined} preload="metadata" />
+    <div className="rounded-xl border border-border/50 bg-card/50 p-4">
+      <audio
+        ref={audioRef}
+        src={src}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
+        onEnded={() => setIsPlaying(false)}
+        preload="metadata"
+      />
 
-        {/* Play/Pause Button */}
-        <button
-          className={`w-13 h-13 rounded-full bg-[var(--primary)] text-white border-0 flex items-center justify-center self-center transition hover:scale-105 ${
-            previewEnded && !hasPurchased
-              ? "opacity-40 cursor-not-allowed"
-              : "cursor-pointer"
-          }`}
+      {/* Waveform */}
+      {showWaveform && (
+        <div className="mb-4">
+          <Waveform
+            audioUrl={src}
+            progress={currentTime}
+            duration={maxTime}
+            onSeek={handleWaveformSeek}
+            className="h-20 w-full"
+          />
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-full"
           onClick={togglePlay}
-          disabled={!audioUrl}
+          aria-label={isPlaying ? "Pause" : "Play"}
         >
           {isPlaying ? (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="6" y="4" width="4" height="16" rx="1" />
-              <rect x="14" y="4" width="4" height="16" rx="1" />
-            </svg>
+            <Pause className="h-4 w-4" />
           ) : (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+            <Play className="h-4 w-4 ml-0.5" />
           )}
-        </button>
+        </Button>
 
-        {/* Progress Bar */}
-        <div className="w-full">
-          <div className="relative h-1.5 bg-[var(--border)] rounded-full">
-
-            {/* Progress Fill */}
-            <div
-              className="absolute top-0 left-0 h-full bg-[var(--primary)] rounded-full transition-all duration-100"
-              style={{ width: `${progressPercent}%` }}
-            />
-
-            {/* Moving Cursor/Thumb */}
-            {!previewEnded && (
-              <div
-                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none"
-                style={{ left: `${progressPercent}%` }}
-              >
-                <div
-                  className={`w-3.5 h-3.5 rounded-full bg-white shadow-lg transition-transform duration-100 ${
-                    isPlaying ? "scale-100" : "scale-90"
-                  }`}
-                  style={{
-                    boxShadow: isPlaying
-                      ? "0 0 8px rgba(124, 92, 252, 0.9), 0 0 16px rgba(124, 92, 252, 0.4)"
-                      : "0 0 4px rgba(255,255,255,0.5)",
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Preview Limit Marker */}
-            {!hasPurchased && duration > 0 && (
-              <div
-                className="absolute -top-1 w-0.5 h-3.5 bg-yellow-500 -translate-x-1/2 rounded-full"
-                style={{ left: `${(PREVIEW_LIMIT / duration) * 100}%` }}
+        <div className="flex-1 space-y-1">
+          <p className="truncate text-sm font-medium">{title}</p>
+          <div className="flex items-center gap-2">
+            <span className="w-10 text-right text-xs text-muted-foreground">
+              {formatTime(currentTime)}
+            </span>
+            {!showWaveform && (
+              <Slider
+                value={[currentTime]}
+                max={maxTime || 1}
+                step={0.1}
+                onValueChange={handleSeek}
+                className="flex-1"
+                aria-label="Seek"
               />
             )}
-
-            {/* Seek Input (invisible) */}
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              value={currentTime}
-              onChange={handleSeek}
-              disabled={!hasPurchased}
-              className="absolute inset-0 w-full h-full opacity-0"
-              style={{ cursor: !hasPurchased ? "not-allowed" : "pointer" }}
-            />
-          </div>
-
-          {/* Time Display */}
-          <div className="flex justify-between text-xs text-[var(--muted)] mt-2">
-            <span>{formatTime(currentTime)}</span>
-            <span>
-              {hasPurchased ? formatTime(duration) : `0:${PREVIEW_LIMIT}`}
+            {showWaveform && <div className="flex-1" />}
+            <span className="w-10 text-xs text-muted-foreground">
+              {formatTime(maxTime)}
             </span>
           </div>
         </div>
 
-        {/* Preview Ended Banner */}
-        {previewEnded && !hasPurchased && (
-          <div className="flex flex-col items-center gap-2.5 p-3.5 bg-[rgba(124,92,252,0.1)] border border-[rgba(124,92,252,0.3)] rounded-xl text-center">
-            <span>🔒 Preview Completed</span>
-            <button
-              onClick={onBuyClick}
-              className="px-5 py-2.5 rounded-xl bg-[var(--primary)] text-white font-semibold hover:opacity-90 transition cursor-pointer border-0"
-            >
-              Buy to listen to the full song
-            </button>
-          </div>
-        )}
-
-        {/* Preview Note */}
-        {!hasPurchased && !previewEnded && audioUrl && (
-          <div className="text-center text-xs text-[var(--muted)]">
-            Sirf {PREVIEW_LIMIT} sec ki preview
-          </div>
-        )}
+        <div className="hidden items-center gap-1 sm:flex">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setIsMuted(!isMuted)}
+            aria-label={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </Button>
+          <Slider
+            value={[isMuted ? 0 : volume]}
+            max={1}
+            step={0.01}
+            onValueChange={(v) => {
+              const val = typeof v === "number" ? v : v[0];
+              setVolume(val);
+              setIsMuted(false);
+            }}
+            className="w-20"
+            aria-label="Volume"
+          />
+        </div>
       </div>
-    </>
+
+      {previewOnly && (
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          Preview limited to {PREVIEW_LIMIT} seconds. Purchase to unlock full track.
+        </p>
+      )}
+    </div>
   );
 }

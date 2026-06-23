@@ -1,63 +1,31 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { connectDB } from "@/lib/db";
-import { signToken, setAuthCookie } from "@/lib/auth";
-import User from "@/lib/models/User";
+import { NextRequest } from "next/server";
+import { signupSchema } from "@/lib/validators/auth";
+import { authService } from "@/lib/services/auth.service";
+import { formatErrorResponse } from "@/lib/errors";
+import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { name, email, password } = await req.json();
+    const ip = getClientIp(request);
+    const rl = rateLimit(ip, { limit: 5, windowSec: 300, prefix: "signup" });
+    if (!rl.success) return rateLimitResponse(rl.resetAt);
 
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: "Naam, email aur password zaroori hai" },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
+    const input = signupSchema.parse(body);
+    const user = await authService.signup(input);
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: "Password kam se kam 6 characters ka hona chahiye" },
-        { status: 400 }
-      );
-    }
-
-    await connectDB();
-
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return NextResponse.json(
-        { error: "Ye email already registered hai" },
-        { status: 409 }
-      );
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role: "user",
-    });
-
-    const token = signToken({
-      userId: user._id.toString(),
-      email: user.email,
-      role: user.role,
-    });
-
-    await setAuthCookie(token);
-
-    return NextResponse.json(
+    return Response.json(
       {
-        message: "Account ban gaya!",
-        user: { id: user._id, name: user.name, email: user.email, role: user.role },
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
       },
       { status: 201 }
     );
-  } catch (err) {
-    console.error("Signup error:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  } catch (error) {
+    return formatErrorResponse(error);
   }
 }

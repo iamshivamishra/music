@@ -1,48 +1,31 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { createOrder } from "@/lib/razorpay";
-import { connectDB } from "@/lib/db";
-import Song from '@/lib/models/Song';
-import Purchase from "@/lib/models/Purchase";
+import { NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
+import { paymentService } from "@/lib/services/payment.service";
+import { createOrderSchema, checkoutCartSchema } from "@/lib/validators/payment";
+import { formatErrorResponse, UnauthorizedError } from "@/lib/errors";
+import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Pehle login karo" }, { status: 401 });
+    const ip = getClientIp(request);
+    const rl = rateLimit(ip, { limit: 10, windowSec: 60, prefix: "payment" });
+    if (!rl.success) return rateLimitResponse(rl.resetAt);
+
+    const session = await auth();
+    if (!session?.user) throw new UnauthorizedError();
+
+    const body = await request.json();
+
+    if (body.fromCart) {
+      const input = checkoutCartSchema.parse(body);
+      const order = await paymentService.checkoutCart(input, session.user.id);
+      return Response.json(order);
     }
 
-    const { songId } = await req.json();
-    if (!songId) {
-      return NextResponse.json({ error: "Song ID chahiye" }, { status: 400 });
-    }
-
-    await connectDB();
-
-    // Already purchased check
-    const existing = await Purchase.findOne({ userId: user.userId, songId });
-    if (existing) {
-      return NextResponse.json(
-        { error: "Ye song already khareed chuke ho" },
-        { status: 409 }
-      );
-    }
-
-    const song = await Song.findById(songId);
-    if (!song) {
-      return NextResponse.json({ error: "Song nahi mila" }, { status: 404 });
-    }
-
-    const order = await createOrder(song.price, songId);
-
-    return NextResponse.json({
-      orderId: order.id,
-      amount: song.price,
-      currency: "INR",
-      songTitle: song.title,
-    });
-  } catch (err) {
-    console.error("Create order error:", err);
-    return NextResponse.json({ error: "Order create nahi hua" }, { status: 500 });
+    const input = createOrderSchema.parse(body);
+    const order = await paymentService.createOrder(input, session.user.id);
+    return Response.json(order);
+  } catch (error) {
+    return formatErrorResponse(error);
   }
 }

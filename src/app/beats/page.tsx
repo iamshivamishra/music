@@ -1,0 +1,109 @@
+import type { Metadata } from "next";
+import { beatFilterSchema, GENRE_OPTIONS, KEY_OPTIONS, MOOD_OPTIONS } from "@/lib/validators/beat";
+import { beatService } from "@/lib/services/beat.service";
+import { licenseRepository } from "@/lib/repositories/license.repository";
+import { auth } from "@/lib/auth";
+import { purchaseRepository } from "@/lib/repositories/purchase.repository";
+import BeatCard from "@/components/BeatCard";
+import { BeatsFilters } from "./BeatsFilters";
+
+export const metadata: Metadata = {
+  title: "Browse Beats",
+  description: "Browse and preview high-quality beats across all genres.",
+};
+
+interface BeatsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function BeatsPage({ searchParams }: BeatsPageProps) {
+  const rawParams = await searchParams;
+  const params: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rawParams)) {
+    if (typeof v === "string") params[k] = v;
+  }
+
+  const filters = beatFilterSchema.parse(params);
+  const result = await beatService.list(filters);
+
+  const session = await auth();
+  const purchasedIds = session?.user
+    ? await purchaseRepository.getPurchasedBeatIds(session.user.id)
+    : [];
+
+  const beatsWithPrices = await Promise.all(
+    result.data.map(async (beat) => {
+      const cheapest = await licenseRepository.findCheapestForBeat(beat._id.toString());
+      return {
+        beat,
+        startingPrice: cheapest?.price,
+        isPurchased: purchasedIds.includes(beat._id.toString()),
+      };
+    })
+  );
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Browse Beats</h1>
+        <p className="mt-1 text-muted-foreground">
+          {result.total} beats available
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <aside className="w-full shrink-0 lg:w-64">
+          <BeatsFilters
+            genres={[...GENRE_OPTIONS]}
+            keys={[...KEY_OPTIONS]}
+            moods={[...MOOD_OPTIONS]}
+            currentFilters={params}
+          />
+        </aside>
+
+        <div className="flex-1">
+          {beatsWithPrices.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {beatsWithPrices.map(({ beat, startingPrice, isPurchased }) => (
+                <BeatCard
+                  key={beat._id.toString()}
+                  beat={beat}
+                  startingPrice={startingPrice}
+                  isPurchased={isPurchased}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <p className="text-lg font-medium">No beats found</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Try adjusting your filters or check back later.
+              </p>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {result.totalPages > 1 && (
+            <div className="mt-8 flex items-center justify-center gap-2">
+              {Array.from({ length: result.totalPages }, (_, i) => i + 1).map(
+                (pageNum) => (
+                  <a
+                    key={pageNum}
+                    href={`/beats?${new URLSearchParams({ ...params, page: String(pageNum) })}`}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors ${
+                      pageNum === result.page
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground hover:bg-accent"
+                    }`}
+                  >
+                    {pageNum}
+                  </a>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
