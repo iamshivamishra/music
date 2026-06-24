@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { beatFilterSchema, GENRE_OPTIONS, KEY_OPTIONS, MOOD_OPTIONS } from "@/lib/validators/beat";
 import { beatService } from "@/lib/services/beat.service";
 import { licenseRepository } from "@/lib/repositories/license.repository";
 import { auth } from "@/lib/auth";
 import { purchaseRepository } from "@/lib/repositories/purchase.repository";
+import { toPublicBeatForUi } from "@/lib/serializers/beat";
 import BeatCard from "@/components/BeatCard";
 import { BeatsFilters } from "./BeatsFilters";
 
@@ -43,16 +45,16 @@ export default async function BeatsPage({ searchParams }: BeatsPageProps) {
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Browse Beats</h1>
-        <p className="mt-1 text-muted-foreground">
+    <div className="page-shell">
+      <div className="page-header">
+        <h1 className="page-title">Browse Beats</h1>
+        <p className="page-subtitle">
           {result.total} beats available
         </p>
       </div>
 
-      <div className="flex flex-col gap-6 lg:flex-row">
-        <aside className="w-full shrink-0 lg:w-64">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <aside className="w-full shrink-0 lg:sticky lg:top-24 lg:w-72">
           <BeatsFilters
             genres={[...GENRE_OPTIONS]}
             keys={[...KEY_OPTIONS]}
@@ -63,11 +65,11 @@ export default async function BeatsPage({ searchParams }: BeatsPageProps) {
 
         <div className="flex-1">
           {beatsWithPrices.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {beatsWithPrices.map(({ beat, startingPrice, isPurchased }) => (
                 <BeatCard
                   key={beat._id.toString()}
-                  beat={beat}
+                  beat={toPublicBeatForUi(beat)}
                   startingPrice={startingPrice}
                   isPurchased={isPurchased}
                 />
@@ -84,10 +86,10 @@ export default async function BeatsPage({ searchParams }: BeatsPageProps) {
 
           {/* Pagination */}
           {result.totalPages > 1 && (
-            <div className="mt-8 flex items-center justify-center gap-2">
+            <nav className="mt-8 flex items-center justify-center gap-2" aria-label="Beats pagination">
               {Array.from({ length: result.totalPages }, (_, i) => i + 1).map(
                 (pageNum) => (
-                  <a
+                  <Link
                     key={pageNum}
                     href={`/beats?${new URLSearchParams({ ...params, page: String(pageNum) })}`}
                     className={`inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium transition-colors ${
@@ -95,12 +97,13 @@ export default async function BeatsPage({ searchParams }: BeatsPageProps) {
                         ? "bg-primary text-primary-foreground"
                         : "bg-secondary text-secondary-foreground hover:bg-accent"
                     }`}
+                    aria-current={pageNum === result.page ? "page" : undefined}
                   >
                     {pageNum}
-                  </a>
+                  </Link>
                 )
               )}
-            </div>
+            </nav>
           )}
         </div>
       </div>

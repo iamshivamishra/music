@@ -48,19 +48,19 @@ export default function OnboardingForm({ userName }: OnboardingFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-lg border-border/50 bg-card/80">
+    <Card className="w-full max-w-lg border-border/60 bg-card/85 shadow-sm">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
-          <Music className="h-6 w-6 text-primary" />
+        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/15">
+          <Music className="h-5 w-5 text-primary" />
         </div>
-        <CardTitle className="text-2xl">Welcome, {userName}!</CardTitle>
+        <CardTitle className="text-2xl font-semibold">Welcome, {userName}!</CardTitle>
         <CardDescription>
           How do you want to use Trishul Beats? You can change this later.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          <div role="alert" aria-live="polite" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}

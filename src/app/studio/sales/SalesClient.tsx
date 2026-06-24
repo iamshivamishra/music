@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, IndianRupee, ShoppingBag, ChevronLeft,
-  ChevronRight, Loader2,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,7 +92,7 @@ export default function SalesClient() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-shell max-w-6xl">
       {/* Header */}
       <div className="mb-8">
         <Button asChild variant="ghost" size="sm" className="mb-4">
@@ -101,7 +101,7 @@ export default function SalesClient() {
             Back to Studio
           </Link>
         </Button>
-        <h1 className="text-3xl font-bold tracking-tight">Sales History</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Sales History</h1>
         <p className="text-muted-foreground">
           {sales ? `${sales.total} total sales` : "Loading..."}
         </p>
@@ -109,9 +109,9 @@ export default function SalesClient() {
 
       {/* Summary Cards */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2">
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Total Sales
             </CardTitle>
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
@@ -124,9 +124,9 @@ export default function SalesClient() {
             )}
           </CardContent>
         </Card>
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Page Revenue
             </CardTitle>
             <IndianRupee className="h-4 w-4 text-muted-foreground" />
@@ -144,7 +144,7 @@ export default function SalesClient() {
       </div>
 
       {/* Sales Table */}
-      <Card className="border-border/50 bg-card/80">
+      <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
         <CardContent className="p-0">
           {loading ? (
             <div className="p-6 space-y-3">

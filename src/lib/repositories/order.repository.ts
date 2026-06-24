@@ -1,22 +1,43 @@
 import { connectDB } from "@/lib/db";
 import Order from "@/lib/models/Order";
 import type { IOrder, OrderStatus } from "@/types";
+import type { ClientSession } from "mongoose";
+
+interface RepoOptions {
+  session?: ClientSession;
+}
 
 export const orderRepository = {
-  async create(data: Partial<IOrder>): Promise<IOrder> {
+  async create(data: Partial<IOrder>, options: RepoOptions = {}): Promise<IOrder> {
     await connectDB();
-    const order = await Order.create(data);
-    return order.toObject() as IOrder;
+    const order = await Order.create([data], { session: options.session });
+    return order[0].toObject() as IOrder;
   },
 
-  async findById(id: string): Promise<IOrder | null> {
+  async attachRazorpayOrderId(
+    id: string,
+    razorpayOrderId: string,
+    options: RepoOptions = {}
+  ): Promise<IOrder | null> {
     await connectDB();
-    return Order.findById(id).lean<IOrder>();
+    return Order.findByIdAndUpdate(
+      id,
+      { razorpayOrderId },
+      { new: true, session: options.session }
+    ).lean<IOrder>();
   },
 
-  async findByRazorpayOrderId(razorpayOrderId: string): Promise<IOrder | null> {
+  async findById(id: string, options: RepoOptions = {}): Promise<IOrder | null> {
     await connectDB();
-    return Order.findOne({ razorpayOrderId }).lean<IOrder>();
+    return Order.findById(id).session(options.session ?? null).lean<IOrder>();
+  },
+
+  async findByRazorpayOrderId(
+    razorpayOrderId: string,
+    options: RepoOptions = {}
+  ): Promise<IOrder | null> {
+    await connectDB();
+    return Order.findOne({ razorpayOrderId }).session(options.session ?? null).lean<IOrder>();
   },
 
   async updateStatus(
@@ -27,25 +48,50 @@ export const orderRepository = {
       razorpaySignature?: string;
       paidAt?: Date;
       failureReason?: string;
-    }
+    },
+    options: RepoOptions = {}
   ): Promise<IOrder | null> {
     await connectDB();
     return Order.findByIdAndUpdate(
       id,
       { status, ...paymentData },
-      { new: true }
+      { new: true, session: options.session }
     ).lean<IOrder>();
   },
 
-  async findByBuyer(buyerId: string, status?: OrderStatus): Promise<IOrder[]> {
+  async markPaidIfPending(
+    id: string,
+    paymentData: {
+      razorpayPaymentId: string;
+      razorpaySignature: string;
+      paidAt: Date;
+    },
+    options: RepoOptions = {}
+  ): Promise<IOrder | null> {
+    await connectDB();
+    return Order.findOneAndUpdate(
+      { _id: id, status: "pending" },
+      { status: "paid", ...paymentData },
+      { new: true, session: options.session }
+    ).lean<IOrder>();
+  },
+
+  async findByBuyer(
+    buyerId: string,
+    status?: OrderStatus,
+    options: RepoOptions = {}
+  ): Promise<IOrder[]> {
     await connectDB();
     const query: Record<string, unknown> = { buyerId };
     if (status) query.status = status;
-    return Order.find(query).sort({ createdAt: -1 }).lean<IOrder[]>();
+    return Order.find(query)
+      .sort({ createdAt: -1 })
+      .session(options.session ?? null)
+      .lean<IOrder[]>();
   },
 
-  async countByBuyer(buyerId: string): Promise<number> {
+  async countByBuyer(buyerId: string, options: RepoOptions = {}): Promise<number> {
     await connectDB();
-    return Order.countDocuments({ buyerId, status: "paid" });
+    return Order.countDocuments({ buyerId, status: "paid" }).session(options.session ?? null);
   },
 };

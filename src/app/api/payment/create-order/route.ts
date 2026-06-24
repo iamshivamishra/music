@@ -8,7 +8,7 @@ import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request);
-    const rl = rateLimit(ip, { limit: 10, windowSec: 60, prefix: "payment" });
+    const rl = await rateLimit(ip, { limit: 10, windowSec: 60, prefix: "payment" });
     if (!rl.success) return rateLimitResponse(rl.resetAt);
 
     const session = await auth();

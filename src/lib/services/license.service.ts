@@ -1,5 +1,6 @@
 import { licenseRepository } from "@/lib/repositories/license.repository";
 import { beatRepository } from "@/lib/repositories/beat.repository";
+import { purchaseRepository } from "@/lib/repositories/purchase.repository";
 import { ForbiddenError, NotFoundError, ConflictError } from "@/lib/errors";
 import { LICENSE_DEFAULTS } from "@/lib/validators/license";
 import { logger } from "@/lib/logger";
@@ -81,6 +82,10 @@ export const licenseService = {
   ): Promise<void> {
     const license = await this.getById(id);
     await assertOwnership(license.beatId.toString(), userId, userRole);
+    const purchaseCount = await purchaseRepository.countByLicense(id);
+    if (purchaseCount > 0) {
+      throw new ConflictError("Cannot delete a license that has existing purchases");
+    }
 
     await licenseRepository.delete(id);
     logger.info("License deleted", { licenseId: id });
@@ -92,6 +97,10 @@ export const licenseService = {
     userRole: string
   ): Promise<ILicense[]> {
     await assertOwnership(beatId, userId, userRole);
+    const purchaseCount = await purchaseRepository.countByBeat(beatId);
+    if (purchaseCount > 0) {
+      throw new ConflictError("Cannot reset licenses for a beat with existing purchases");
+    }
     await licenseRepository.deleteByBeatId(beatId);
 
     const defaultLicenses = Object.entries(LICENSE_DEFAULTS).map(

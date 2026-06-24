@@ -5,11 +5,10 @@ import { storageService } from "@/lib/services/storage.service";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { audit } from "@/lib/audit";
-import type { IBeat, ILicense } from "@/types";
+import { resolvePurchaseEntitlements } from "@/lib/security/entitlements";
+import type { IBeat } from "@/types";
 
 export type DownloadFileType = "preview" | "master" | "stems";
-
-const SIGNED_URL_TTL = 900; // 15 minutes
 
 interface DownloadLink {
   type: DownloadFileType;
@@ -28,6 +27,7 @@ interface DownloadAccess {
   licenseName: string;
   links: DownloadLink[];
 }
+
 
 function buildFilename(title: string, type: DownloadFileType): string {
   const sanitized = title.replace(/[^a-zA-Z0-9 _-]/g, "").trim();
@@ -57,8 +57,7 @@ function isStorageKey(url: string): boolean {
 }
 
 async function generateSignedUrl(
-  url: string,
-  filename: string
+  url: string
 ): Promise<string> {
   if (isStorageKey(url)) {
     return storageService.getDownloadUrl(url);
@@ -99,6 +98,11 @@ export const downloadService = {
 
     const purchase = purchases[0];
     const license = await licenseRepository.findById(purchase.licenseId.toString());
+    const { wavAllowed, stemsAllowed, licenseMatchesBeat } = resolvePurchaseEntitlements(
+      purchase,
+      license,
+      beatId
+    );
 
     const links: DownloadLink[] = [];
 
@@ -109,7 +113,7 @@ export const downloadService = {
       links.push({
         type: "preview",
         label: "MP3 Preview",
-        url: await generateSignedUrl(previewUrl, filename),
+        url: await generateSignedUrl(previewUrl),
         filename,
         available: true,
       });
@@ -117,13 +121,12 @@ export const downloadService = {
 
     // WAV Master — requires license.includesWav
     const masterUrl = resolveFileUrl(beat, "master");
-    const wavAllowed = license ? license.includesWav : true;
     if (masterUrl && wavAllowed) {
       const filename = buildFilename(beat.title, "master");
       links.push({
         type: "master",
         label: "WAV Master",
-        url: await generateSignedUrl(masterUrl, filename),
+        url: await generateSignedUrl(masterUrl),
         filename,
         available: true,
       });
@@ -140,13 +143,12 @@ export const downloadService = {
 
     // Stems — requires license.includesStems
     const stemsUrl = resolveFileUrl(beat, "stems");
-    const stemsAllowed = license ? license.includesStems : false;
     if (stemsUrl && stemsAllowed) {
       const filename = buildFilename(beat.title, "stems");
       links.push({
         type: "stems",
         label: "Stems Package",
-        url: await generateSignedUrl(stemsUrl, filename),
+        url: await generateSignedUrl(stemsUrl),
         filename,
         available: true,
       });
@@ -173,7 +175,17 @@ export const downloadService = {
     logger.info("Download links generated", {
       userId,
       beatId,
+      wavAllowed,
+      stemsAllowed,
+      licenseMatchesBeat,
       linksCount: links.filter((l) => l.available).length,
+    });
+    audit({
+      action: "download.links_generated",
+      userId,
+      resourceType: "beat",
+      resourceId: beatId,
+      metadata: { wavAllowed, stemsAllowed, licenseMatchesBeat },
     });
 
     return {
@@ -181,7 +193,7 @@ export const downloadService = {
       beatTitle: beat.title,
       coverUrl: beat.coverUrl,
       licenseType: purchase.licenseType,
-      licenseName: license?.name || purchase.licenseType,
+      licenseName: licenseMatchesBeat ? (license?.name ?? purchase.licenseType) : purchase.licenseType,
       links,
     };
   },
@@ -209,12 +221,17 @@ export const downloadService = {
 
     const purchase = purchases[0];
     const license = await licenseRepository.findById(purchase.licenseId.toString());
+    const { wavAllowed, stemsAllowed } = resolvePurchaseEntitlements(
+      purchase,
+      license,
+      beatId
+    );
 
-    if (fileType === "master" && license && !license.includesWav) {
+    if (fileType === "master" && !wavAllowed) {
       throw new ForbiddenError("Your license does not include WAV files. Upgrade to access.");
     }
 
-    if (fileType === "stems" && license && !license.includesStems) {
+    if (fileType === "stems" && !stemsAllowed) {
       throw new ForbiddenError("Your license does not include stems. Upgrade to Unlimited.");
     }
 
@@ -222,7 +239,7 @@ export const downloadService = {
     if (!fileUrl) throw new NotFoundError(`${fileType} file not available for this beat`);
 
     const filename = buildFilename(beat.title, fileType);
-    const url = await generateSignedUrl(fileUrl, filename);
+    const url = await generateSignedUrl(fileUrl);
 
     logger.info("Signed download URL generated", { userId, beatId, fileType });
     audit({

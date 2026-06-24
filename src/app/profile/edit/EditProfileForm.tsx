@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -139,14 +138,14 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Edit Profile</h1>
+        <h1 className="text-2xl font-semibold">Edit Profile</h1>
         <p className="text-sm text-muted-foreground">
           Customize your public producer profile
         </p>
       </div>
 
       {/* Cover Image */}
-      <Card className="overflow-hidden border-border/50 bg-card/80">
+      <Card className="overflow-hidden rounded-2xl border-border/50 bg-card/80 shadow-sm">
         <div className="relative h-40 w-full bg-gradient-to-br from-primary/30 via-primary/10 to-background sm:h-48">
           {coverImageUrl && (
             <Image
@@ -220,7 +219,7 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
       </Card>
 
       {/* Basic Info */}
-      <Card className="border-border/50 bg-card/80">
+      <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <User className="h-5 w-5 text-primary" />
@@ -281,7 +280,7 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
       </Card>
 
       {/* Genres */}
-      <Card className="border-border/50 bg-card/80">
+      <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Music className="h-5 w-5 text-primary" />
@@ -317,7 +316,7 @@ export default function EditProfileForm({ user }: EditProfileFormProps) {
       </Card>
 
       {/* Social Links */}
-      <Card className="border-border/50 bg-card/80">
+      <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Globe className="h-5 w-5 text-primary" />

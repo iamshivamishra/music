@@ -1,6 +1,11 @@
 import { connectDB } from "@/lib/db";
 import User from "@/lib/models/User";
 import type { IUser } from "@/types";
+import type { ClientSession } from "mongoose";
+
+interface RepoOptions {
+  session?: ClientSession;
+}
 
 export const userRepository = {
   async findByEmail(email: string, includePassword = false): Promise<IUser | null> {
@@ -73,9 +78,13 @@ export const userRepository = {
       .lean<IUser[]>();
   },
 
-  async incrementSalesCount(producerId: string): Promise<void> {
+  async incrementSalesCount(producerId: string, options: RepoOptions = {}): Promise<void> {
     await connectDB();
-    await User.findByIdAndUpdate(producerId, { $inc: { salesCount: 1 } });
+    await User.findByIdAndUpdate(
+      producerId,
+      { $inc: { salesCount: 1 } },
+      { session: options.session }
+    );
   },
 
   async countByRole(role: string): Promise<number> {

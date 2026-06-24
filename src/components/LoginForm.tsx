@@ -61,13 +61,13 @@ export default function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md border-border/50 bg-card/80">
+    <Card className="w-full max-w-md border-border/60 bg-card/85 shadow-sm">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
-          <Music className="h-6 w-6 text-primary" />
+        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/15">
+          <Music className="h-5 w-5 text-primary" />
         </div>
-        <CardTitle className="text-2xl">Welcome Back</CardTitle>
-        <CardDescription>Sign in to your Trishul Beats account</CardDescription>
+        <CardTitle className="text-2xl font-semibold">Welcome back</CardTitle>
+        <CardDescription>Sign in to continue to your dashboard and purchases</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button
@@ -92,7 +92,7 @@ export default function LoginForm() {
         </div>
 
         {error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          <div role="alert" aria-live="polite" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}
@@ -125,7 +125,7 @@ export default function LoginForm() {
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In with Email
+            Sign in with email
           </Button>
         </form>
       </CardContent>

@@ -88,12 +88,12 @@ export default function SignupForm() {
   };
 
   return (
-    <Card className="w-full max-w-md border-border/50 bg-card/80">
+    <Card className="w-full max-w-md border-border/60 bg-card/85 shadow-sm">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
-          <Music className="h-6 w-6 text-primary" />
+        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/15">
+          <Music className="h-5 w-5 text-primary" />
         </div>
-        <CardTitle className="text-2xl">Create Account</CardTitle>
+        <CardTitle className="text-2xl font-semibold">Create account</CardTitle>
         <CardDescription>Join Trishul Beats as a buyer or producer</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -119,7 +119,7 @@ export default function SignupForm() {
         </div>
 
         {error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          <div role="alert" aria-live="polite" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}
@@ -162,6 +162,9 @@ export default function SignupForm() {
               minLength={8}
               autoComplete="new-password"
             />
+            <p className="text-xs text-muted-foreground">
+              Use at least 8 characters for better security.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">I want to</Label>

@@ -1,6 +1,11 @@
 import { connectDB } from "@/lib/db";
 import License from "@/lib/models/License";
 import type { ILicense } from "@/types";
+import type { ClientSession } from "mongoose";
+
+interface RepoOptions {
+  session?: ClientSession;
+}
 
 export const licenseRepository = {
   async findByBeatId(beatId: string, activeOnly = true): Promise<ILicense[]> {
@@ -10,9 +15,9 @@ export const licenseRepository = {
     return License.find(query).sort({ price: 1 }).lean<ILicense[]>();
   },
 
-  async findById(id: string): Promise<ILicense | null> {
+  async findById(id: string, options: RepoOptions = {}): Promise<ILicense | null> {
     await connectDB();
-    return License.findById(id).lean<ILicense>();
+    return License.findById(id).session(options.session ?? null).lean<ILicense>();
   },
 
   async create(data: Partial<ILicense>): Promise<ILicense> {
@@ -38,9 +43,9 @@ export const licenseRepository = {
     return !!result;
   },
 
-  async deleteByBeatId(beatId: string): Promise<number> {
+  async deleteByBeatId(beatId: string, options: RepoOptions = {}): Promise<number> {
     await connectDB();
-    const result = await License.deleteMany({ beatId });
+    const result = await License.deleteMany({ beatId }, { session: options.session });
     return result.deletedCount;
   },
 

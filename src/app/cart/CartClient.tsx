@@ -24,16 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCart } from "@/components/CartProvider";
+import { tierAccent } from "@/lib/license-ui";
 import type { CartItemPopulated, ILicense } from "@/types";
-
-function tierAccent(type: string) {
-  switch (type) {
-    case "basic": return "text-primary";
-    case "premium": return "text-amber-400";
-    case "unlimited": return "text-violet-400";
-    default: return "text-primary";
-  }
-}
 
 function CartItemRow({
   item,
@@ -139,6 +131,7 @@ function CartItemRow({
           className="h-8 w-8 text-destructive hover:bg-destructive/10"
           onClick={onRemove}
           disabled={removing}
+          aria-label={`Remove ${item.beatTitle} from cart`}
         >
           {removing ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -262,7 +255,7 @@ export default function CartClient() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="page-shell max-w-4xl">
         <h1 className="mb-8 text-3xl font-bold">Your Cart</h1>
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           <Card className="border-border/50 bg-card/80">
@@ -287,10 +280,10 @@ export default function CartClient() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-shell max-w-4xl">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Your Cart</h1>
+          <h1 className="text-3xl font-semibold">Your Cart</h1>
           <p className="mt-1 text-muted-foreground">
             {count === 0
               ? "Your cart is empty"
@@ -320,12 +313,12 @@ export default function CartClient() {
           <ShoppingCart className="mb-4 h-16 w-16 text-muted-foreground/30" />
           <p className="text-lg font-medium">No items in your cart</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Browse the marketplace and add beats you love.
+            Browse beats and add tracks you love.
           </p>
           <Button asChild className="mt-6" size="lg">
-            <Link href="/marketplace">
+            <Link href="/beats">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Browse Marketplace
+              Browse Beats
             </Link>
           </Button>
         </div>
@@ -421,7 +414,7 @@ export default function CartClient() {
                 )}
 
                 <Button asChild variant="ghost" size="sm" className="w-full">
-                  <Link href="/marketplace">
+                  <Link href="/beats">
                     <ArrowLeft className="mr-1.5 h-4 w-4" />
                     Continue Shopping
                   </Link>

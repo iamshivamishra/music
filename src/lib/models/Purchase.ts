@@ -7,6 +7,8 @@ const PurchaseSchema = new Schema<IPurchase>(
     beatId: { type: Schema.Types.ObjectId, ref: "Beat", required: true },
     licenseId: { type: Schema.Types.ObjectId, ref: "License", required: true },
     licenseType: { type: String, enum: ["basic", "premium", "unlimited", "exclusive"], required: true },
+    includesWav: { type: Boolean, default: false },
+    includesStems: { type: Boolean, default: false },
     orderId: { type: String, required: true },
     paymentId: { type: String, required: true },
     amount: { type: Number, required: true },

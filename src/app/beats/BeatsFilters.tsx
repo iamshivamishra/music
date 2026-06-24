@@ -39,13 +39,14 @@ export function BeatsFilters({ genres, keys, moods, currentFilters }: BeatsFilte
   );
 
   const clearFilters = () => router.push("/beats");
+  const searchId = "beats-search-input";
 
   const hasFilters = Object.keys(currentFilters).some(
     (k) => k !== "page" && k !== "limit" && k !== "sort"
   );
 
   return (
-    <div className="space-y-5 rounded-xl border border-border/50 bg-card/50 p-4">
+    <div className="surface space-y-5 p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Filters</h3>
         {hasFilters && (
@@ -57,10 +58,11 @@ export function BeatsFilters({ genres, keys, moods, currentFilters }: BeatsFilte
       </div>
 
       <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">Search</Label>
+        <Label htmlFor={searchId} className="text-xs text-muted-foreground">Search</Label>
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
+            id={searchId}
             placeholder="Search beats..."
             className="pl-8"
             defaultValue={currentFilters.search || ""}
@@ -69,6 +71,7 @@ export function BeatsFilters({ genres, keys, moods, currentFilters }: BeatsFilte
             }}
           />
         </div>
+        <p className="text-xs text-muted-foreground">Press Enter to apply search.</p>
       </div>
 
       <div className="space-y-2">

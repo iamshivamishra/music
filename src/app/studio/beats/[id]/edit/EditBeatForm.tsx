@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  Loader2, Save, ArrowLeft, Music, Eye, EyeOff, Trash2, X, Archive,
+  Loader2, Save, ArrowLeft, Music, Eye, EyeOff, Trash2, Archive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,7 +137,7 @@ export default function EditBeatForm({ beat, licenses }: Props) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon">
             <Link href="/studio/beats">
@@ -145,7 +145,7 @@ export default function EditBeatForm({ beat, licenses }: Props) {
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Edit Beat</h1>
+            <h1 className="text-2xl font-semibold">Edit Beat</h1>
             <div className="flex items-center gap-2 mt-1">
               <Badge variant={status === "published" ? "default" : "secondary"}>
                 {statusLabel(status)}
@@ -188,7 +188,7 @@ export default function EditBeatForm({ beat, licenses }: Props) {
       )}
 
       {/* Metadata */}
-      <Card className="border-border/50 bg-card/80">
+      <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Music className="h-5 w-5 text-primary" />
@@ -291,7 +291,7 @@ export default function EditBeatForm({ beat, licenses }: Props) {
       </Card>
 
       {/* Files info */}
-      <Card className="border-border/50 bg-card/80">
+      <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg">Files</CardTitle>
           <CardDescription>

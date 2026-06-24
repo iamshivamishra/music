@@ -1,37 +1,52 @@
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Purchase from "@/lib/models/Purchase";
+import { toValidObjectIdOrNull } from "@/lib/security/object-id";
 import type { IPurchase } from "@/types";
+import type { ClientSession } from "mongoose";
+
+interface RepoOptions {
+  session?: ClientSession;
+}
 
 export const purchaseRepository = {
-  async findByBuyerId(buyerId: string): Promise<IPurchase[]> {
+  async findByBuyerId(buyerId: string, options: RepoOptions = {}): Promise<IPurchase[]> {
     await connectDB();
     return Purchase.find({ buyerId })
       .sort({ createdAt: -1 })
+      .session(options.session ?? null)
       .lean<IPurchase[]>();
   },
 
-  async findByBeatId(beatId: string): Promise<IPurchase[]> {
+  async findByBeatId(beatId: string, options: RepoOptions = {}): Promise<IPurchase[]> {
     await connectDB();
     return Purchase.find({ beatId })
       .sort({ createdAt: -1 })
+      .session(options.session ?? null)
       .lean<IPurchase[]>();
   },
 
-  async hasPurchased(buyerId: string, beatId: string): Promise<boolean> {
+  async hasPurchased(buyerId: string, beatId: string, options: RepoOptions = {}): Promise<boolean> {
     await connectDB();
-    return (await Purchase.countDocuments({ buyerId, beatId })) > 0;
+    return (await Purchase.countDocuments({ buyerId, beatId }).session(options.session ?? null)) > 0;
   },
 
-  async findByBuyerAndBeat(buyerId: string, beatId: string): Promise<IPurchase[]> {
+  async findByBuyerAndBeat(
+    buyerId: string,
+    beatId: string,
+    options: RepoOptions = {}
+  ): Promise<IPurchase[]> {
     await connectDB();
-    return Purchase.find({ buyerId, beatId }).sort({ createdAt: -1 }).lean<IPurchase[]>();
+    return Purchase.find({ buyerId, beatId })
+      .sort({ createdAt: -1 })
+      .session(options.session ?? null)
+      .lean<IPurchase[]>();
   },
 
-  async create(data: Partial<IPurchase>): Promise<IPurchase> {
+  async create(data: Partial<IPurchase>, options: RepoOptions = {}): Promise<IPurchase> {
     await connectDB();
-    const purchase = await Purchase.create(data);
-    return purchase.toObject() as IPurchase;
+    const purchase = await Purchase.create([data], { session: options.session });
+    return purchase[0].toObject() as IPurchase;
   },
 
   async getPurchasedBeatIds(buyerId: string): Promise<string[]> {
@@ -44,6 +59,10 @@ export const purchaseRepository = {
 
   async getEarningsByProducer(producerId: string): Promise<number> {
     await connectDB();
+    const producerObjectId = toValidObjectIdOrNull(producerId);
+    if (!producerObjectId) {
+      return 0;
+    }
     // Requires a join with Beat to filter by producerId
     const result = await Purchase.aggregate([
       {
@@ -55,7 +74,7 @@ export const purchaseRepository = {
         },
       },
       { $unwind: "$beat" },
-      { $match: { "beat.producerId": producerId } },
+      { $match: { "beat.producerId": producerObjectId } },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
     return result[0]?.total ?? 0;
@@ -69,6 +88,11 @@ export const purchaseRepository = {
   async countByBeat(beatId: string): Promise<number> {
     await connectDB();
     return Purchase.countDocuments({ beatId });
+  },
+
+  async countByLicense(licenseId: string): Promise<number> {
+    await connectDB();
+    return Purchase.countDocuments({ licenseId });
   },
 
   /**

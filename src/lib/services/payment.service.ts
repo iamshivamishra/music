@@ -5,7 +5,8 @@ import { beatRepository } from "@/lib/repositories/beat.repository";
 import { userRepository } from "@/lib/repositories/user.repository";
 import { cartRepository } from "@/lib/repositories/cart.repository";
 import { cartService } from "@/lib/services/cart.service";
-import { ConflictError, NotFoundError } from "@/lib/errors";
+import { withTransaction } from "@/lib/db";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { razorpay, verifySignature } from "@/lib/razorpay";
 import { logger } from "@/lib/logger";
 import { audit } from "@/lib/audit";
@@ -37,9 +38,15 @@ export const paymentService = {
 
     const license = await licenseRepository.findById(input.licenseId);
     if (!license || !license.isActive) throw new NotFoundError("License");
+    if (license.beatId.toString() !== input.beatId) {
+      throw new ConflictError("License does not belong to this beat");
+    }
 
     const beat = await beatRepository.findById(input.beatId);
     if (!beat) throw new NotFoundError("Beat");
+    if (!beat.isPublished || beat.status !== "published") {
+      throw new ConflictError("This beat is not available for purchase");
+    }
 
     const receipt = generateReceipt();
 
@@ -68,21 +75,7 @@ export const paymentService = {
         buyerId,
       },
     });
-
-    await orderRepository.updateStatus(order._id.toString(), "pending", {
-      razorpayPaymentId: undefined,
-      razorpaySignature: undefined,
-    });
-
-    // Store razorpayOrderId on the order
-    await orderRepository.updateStatus(order._id.toString(), "pending", {});
-    // Direct update for razorpayOrderId
-    const { connectDB } = await import("@/lib/db");
-    await connectDB();
-    const OrderModel = (await import("@/lib/models/Order")).default;
-    await OrderModel.findByIdAndUpdate(order._id, {
-      razorpayOrderId: razorpayOrder.id,
-    });
+    await orderRepository.attachRazorpayOrderId(order._id.toString(), razorpayOrder.id);
 
     logger.info("Order created", {
       orderId: order._id,
@@ -157,12 +150,7 @@ export const paymentService = {
       },
     });
 
-    const { connectDB } = await import("@/lib/db");
-    await connectDB();
-    const OrderModel = (await import("@/lib/models/Order")).default;
-    await OrderModel.findByIdAndUpdate(order._id, {
-      razorpayOrderId: razorpayOrder.id,
-    });
+    await orderRepository.attachRazorpayOrderId(order._id.toString(), razorpayOrder.id);
 
     logger.info("Cart checkout order created", {
       orderId: order._id,
@@ -202,8 +190,8 @@ export const paymentService = {
       throw new ConflictError("Order does not belong to this user");
     }
 
-    if (order.status === "paid") {
-      throw new ConflictError("This order has already been processed");
+    if (order.status !== "pending") {
+      throw new ConflictError("This order can no longer be processed");
     }
 
     if (!isValid) {
@@ -216,71 +204,105 @@ export const paymentService = {
         orderId: order._id,
         razorpayOrderId: input.orderId,
       });
+      audit({
+        action: "payment.signature_invalid",
+        userId: buyerId,
+        resourceType: "order",
+        resourceId: order._id.toString(),
+      });
 
-      throw new Error("Payment verification failed — invalid signature");
+      throw new ValidationError("Payment verification failed", {
+        signature: ["Invalid payment signature"],
+      });
     }
 
-    // Mark order as paid
-    await orderRepository.updateStatus(order._id.toString(), "paid", {
-      razorpayPaymentId: input.paymentId,
-      razorpaySignature: input.signature,
-      paidAt: new Date(),
-    });
+    const result = await withTransaction(async (session) => {
+      const paidOrder = await orderRepository.markPaidIfPending(
+        order._id.toString(),
+        {
+          razorpayPaymentId: input.paymentId,
+          razorpaySignature: input.signature,
+          paidAt: new Date(),
+        },
+        { session }
+      );
+      if (!paidOrder) {
+        throw new ConflictError("This order has already been processed");
+      }
 
-    // Create purchase records for each item
-    const purchases: IPurchase[] = [];
-    for (const item of order.items) {
-      try {
-        const purchase = await purchaseRepository.create({
-          buyerId: buyerId as unknown as IPurchase["buyerId"],
-          beatId: item.beatId as unknown as IPurchase["beatId"],
-          licenseId: item.licenseId as unknown as IPurchase["licenseId"],
-          licenseType: item.licenseType,
-          orderId: input.orderId,
-          paymentId: input.paymentId,
-          amount: item.price,
-        });
+      const purchases: IPurchase[] = [];
+
+      for (const item of paidOrder.items) {
+        const beatId = item.beatId.toString();
+        const [beat, license, alreadyPurchased] = await Promise.all([
+          beatRepository.findById(beatId, false, { session }),
+          licenseRepository.findById(item.licenseId.toString(), { session }),
+          purchaseRepository.hasPurchased(buyerId, beatId, { session }),
+        ]);
+
+        if (alreadyPurchased) {
+          throw new ConflictError(`Beat "${item.beatTitle}" has already been purchased`);
+        }
+        if (!beat) {
+          throw new NotFoundError("Beat");
+        }
+        if (!beat.isPublished || beat.status !== "published") {
+          throw new ConflictError("Beat is no longer available for purchase");
+        }
+        if (!license || !license.isActive) {
+          throw new ConflictError("License is no longer available");
+        }
+        if (license.beatId.toString() !== beatId) {
+          throw new ConflictError("License does not belong to this beat");
+        }
+
+        const purchase = await purchaseRepository.create(
+          {
+            buyerId: buyerId as unknown as IPurchase["buyerId"],
+            beatId: item.beatId as unknown as IPurchase["beatId"],
+            licenseId: item.licenseId as unknown as IPurchase["licenseId"],
+            licenseType: item.licenseType,
+            includesWav: license.includesWav,
+            includesStems: license.includesStems,
+            orderId: input.orderId,
+            paymentId: input.paymentId,
+            amount: item.price,
+          },
+          { session }
+        );
         purchases.push(purchase);
 
-        // Post-purchase hooks: increment sales counts
-        const beatId = item.beatId.toString();
-        await beatRepository.incrementSalesCount(beatId);
-
-        const beat = await beatRepository.findById(beatId);
-        if (beat) {
-          await userRepository.incrementSalesCount(beat.producerId.toString());
-        }
-      } catch (err) {
-        // If a purchase already exists (race condition), skip it
-        logger.warn("Failed to create purchase for order item", {
-          orderId: order._id,
-          beatId: item.beatId,
-          error: err,
-        });
+        await beatRepository.incrementSalesCount(beatId, { session });
+        await userRepository.incrementSalesCount(beat.producerId.toString(), { session });
       }
-    }
 
-    // Clear cart after successful payment
-    await cartRepository.clear(buyerId);
+      if (purchases.length === 0) {
+        throw new ConflictError("Payment captured but purchase creation failed");
+      }
+
+      await cartRepository.clear(buyerId, { session });
+
+      return { paidOrder, purchases };
+    });
 
     logger.info("Payment verified and recorded", {
       orderId: order._id,
-      purchaseCount: purchases.length,
-      totalAmount: order.totalAmount,
+      purchaseCount: result.purchases.length,
+      totalAmount: result.paidOrder.totalAmount,
     });
     audit({
       action: "payment.verified",
       userId: buyerId,
       resourceType: "order",
-      resourceId: order._id.toString(),
-      metadata: { purchaseCount: purchases.length, totalAmount: order.totalAmount },
+      resourceId: result.paidOrder._id.toString(),
+      metadata: { purchaseCount: result.purchases.length, totalAmount: result.paidOrder.totalAmount },
     });
 
-    const updatedOrder = await orderRepository.findById(order._id.toString());
+    const updatedOrder = await orderRepository.findById(result.paidOrder._id.toString());
 
     return {
       order: updatedOrder!,
-      purchases,
+      purchases: result.purchases,
     };
   },
 

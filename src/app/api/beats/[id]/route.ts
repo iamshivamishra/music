@@ -3,8 +3,9 @@ import { auth } from "@/lib/auth";
 import { beatService } from "@/lib/services/beat.service";
 import { licenseRepository } from "@/lib/repositories/license.repository";
 import { purchaseRepository } from "@/lib/repositories/purchase.repository";
+import { toPublicBeatPayload } from "@/lib/serializers/beat";
 import { updateBeatSchema } from "@/lib/validators/beat";
-import { formatErrorResponse, UnauthorizedError } from "@/lib/errors";
+import { formatErrorResponse, NotFoundError, UnauthorizedError } from "@/lib/errors";
 
 export async function GET(
   _request: NextRequest,
@@ -15,6 +16,12 @@ export async function GET(
     const session = await auth();
 
     const beat = await beatService.getById(id);
+    const isOwner = session?.user && beat.producerId.toString() === session.user.id;
+    const canViewUnpublished = isOwner || session?.user?.role === "admin";
+    if ((!beat.isPublished || beat.status !== "published") && !canViewUnpublished) {
+      throw new NotFoundError("Beat");
+    }
+
     const licenses = await licenseRepository.findByBeatId(id);
 
     let hasPurchased = false;
@@ -22,7 +29,7 @@ export async function GET(
       hasPurchased = await purchaseRepository.hasPurchased(session.user.id, id);
     }
 
-    return Response.json({ beat, licenses, hasPurchased });
+    return Response.json({ beat: toPublicBeatPayload(beat), licenses, hasPurchased });
   } catch (error) {
     return formatErrorResponse(error);
   }

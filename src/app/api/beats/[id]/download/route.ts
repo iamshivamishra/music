@@ -18,7 +18,7 @@ export async function GET(
 ) {
   try {
     const ip = getClientIp(request);
-    const rl = rateLimit(ip, { limit: 30, windowSec: 60, prefix: "download" });
+    const rl = await rateLimit(ip, { limit: 30, windowSec: 60, prefix: "download" });
     if (!rl.success) return rateLimitResponse(rl.resetAt);
 
     const session = await auth();

@@ -18,7 +18,13 @@ export const cartService = {
         licenseRepository.findById(item.licenseId.toString()),
       ]);
 
-      if (!beat || !license || !license.isActive) {
+      if (
+        !beat ||
+        !beat.isPublished ||
+        beat.status !== "published" ||
+        !license ||
+        !license.isActive
+      ) {
         await cartRepository.remove(userId, item.beatId.toString());
         continue;
       }
@@ -44,9 +50,15 @@ export const cartService = {
   async addItem(userId: string, beatId: string, licenseId: string): Promise<void> {
     const beat = await beatRepository.findById(beatId);
     if (!beat) throw new NotFoundError("Beat");
+    if (!beat.isPublished || beat.status !== "published") {
+      throw new ConflictError("This beat is not available for purchase");
+    }
 
     const license = await licenseRepository.findById(licenseId);
     if (!license) throw new NotFoundError("License");
+    if (!license.isActive) {
+      throw new ConflictError("This license is no longer available");
+    }
     if (license.beatId.toString() !== beatId) {
       throw new ConflictError("License does not belong to this beat");
     }
@@ -66,6 +78,9 @@ export const cartService = {
 
     const license = await licenseRepository.findById(licenseId);
     if (!license) throw new NotFoundError("License");
+    if (!license.isActive) {
+      throw new ConflictError("This license is no longer available");
+    }
     if (license.beatId.toString() !== beatId) {
       throw new ConflictError("License does not belong to this beat");
     }

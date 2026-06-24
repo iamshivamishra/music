@@ -182,7 +182,7 @@ export default function UploadForm() {
       />
       <div
         onClick={() => ref.current?.click()}
-        className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-border p-4 transition-colors hover:border-primary/50"
+        className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border/70 bg-background/60 p-4 transition-colors hover:border-primary/50 hover:bg-accent/30"
       >
         <div className="shrink-0 text-muted-foreground">{icon}</div>
         <div className="flex-1 min-w-0">
@@ -223,7 +223,7 @@ export default function UploadForm() {
   );
 
   return (
-    <Card className="border-border/50 bg-card/80">
+    <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Upload className="h-5 w-5 text-primary" />

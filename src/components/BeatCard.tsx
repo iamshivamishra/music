@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Play, Clock, Music } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatDuration } from "@/lib/format";
 import type { IBeat } from "@/types";
 
 interface BeatCardProps {
@@ -13,16 +14,14 @@ interface BeatCardProps {
   isPurchased?: boolean;
 }
 
-function formatDuration(seconds: number): string {
-  const min = Math.floor(seconds / 60);
-  const sec = Math.floor(seconds % 60);
-  return `${min}:${sec.toString().padStart(2, "0")}`;
-}
-
 export default function BeatCard({ beat, startingPrice, isPurchased }: BeatCardProps) {
   return (
-    <Link href={`/beats/${beat._id}`}>
-      <Card className="group overflow-hidden border-border/50 bg-card/50 transition-all hover:border-primary/30 hover:bg-card">
+    <Link
+      href={`/beats/${beat._id}`}
+      aria-label={`Open beat ${beat.title}`}
+      className="focus-ring block rounded-xl"
+    >
+      <Card className="group overflow-hidden border-border/60 bg-card/70 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card">
         <div className="relative aspect-square overflow-hidden">
           {beat.coverUrl ? (
             <Image
@@ -47,7 +46,7 @@ export default function BeatCard({ beat, startingPrice, isPurchased }: BeatCardP
           )}
         </div>
         <CardContent className="p-3">
-          <h3 className="truncate text-sm font-semibold">{beat.title}</h3>
+          <h3 className="truncate text-sm font-semibold leading-5">{beat.title}</h3>
           <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />

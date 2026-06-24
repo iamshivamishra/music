@@ -87,6 +87,8 @@ export interface IPurchase {
   beatId: string | Types.ObjectId;
   licenseId: string | Types.ObjectId;
   licenseType: "basic" | "premium" | "unlimited" | "exclusive";
+  includesWav?: boolean;
+  includesStems?: boolean;
   orderId: string;
   paymentId: string;
   amount: number;
