@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   IndianRupee, TrendingUp, Music, BarChart3,
-  ArrowRight, Loader2, Eye, ShoppingBag, Upload,
+  ArrowRight, Eye, ShoppingBag, Upload,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,9 +34,9 @@ function StatCard({
   subtitle?: string;
 }) {
   return (
-    <Card className="border-border/50 bg-card/80">
+    <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {title}
         </CardTitle>
         <Icon className="h-4 w-4 text-muted-foreground" />
@@ -53,7 +53,7 @@ function StatCard({
 
 function DashboardSkeleton() {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-shell">
       <Skeleton className="mb-8 h-10 w-64" />
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
@@ -114,11 +114,11 @@ export default function StudioDashboard() {
       : null;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-shell">
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Studio</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Studio</h1>
           <p className="text-muted-foreground">
             Track your performance and manage your catalog
           </p>
@@ -172,9 +172,9 @@ export default function StudioDashboard() {
 
       {/* Charts */}
       <div className="mb-8 grid gap-6 lg:grid-cols-2">
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Revenue Trend</CardTitle>
+            <CardTitle className="text-base font-semibold">Revenue Trend</CardTitle>
             <CardDescription>Monthly revenue over the last 12 months</CardDescription>
           </CardHeader>
           <CardContent>
@@ -187,9 +187,9 @@ export default function StudioDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Sales Trend</CardTitle>
+            <CardTitle className="text-base font-semibold">Sales Trend</CardTitle>
             <CardDescription>Monthly sales count over the last 12 months</CardDescription>
           </CardHeader>
           <CardContent>
@@ -206,7 +206,7 @@ export default function StudioDashboard() {
       {/* Top Beats & Quick Links */}
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         {/* Top Beats */}
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base">Top Performing Beats</CardTitle>
@@ -257,7 +257,7 @@ export default function StudioDashboard() {
 
         {/* Quick Actions */}
         <div className="space-y-4">
-          <Card className="border-border/50 bg-card/80">
+          <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">Quick Actions</CardTitle>
             </CardHeader>
@@ -290,7 +290,7 @@ export default function StudioDashboard() {
           </Card>
 
           {/* Current Month Summary */}
-          <Card className="border-border/50 bg-card/80">
+          <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">This Month</CardTitle>
               <CardDescription>{currentMonth.month}</CardDescription>

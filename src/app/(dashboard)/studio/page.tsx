@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import StudioDashboard from "./StudioDashboard";
+import StudioDashboard from "@/app/studio/StudioDashboard";
 
 export const metadata: Metadata = {
   title: "Studio — Trishul Beats",

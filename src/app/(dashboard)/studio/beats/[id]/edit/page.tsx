@@ -3,7 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { beatRepository } from "@/lib/repositories/beat.repository";
 import { licenseRepository } from "@/lib/repositories/license.repository";
-import EditBeatForm from "./EditBeatForm";
+import EditBeatForm from "@/app/studio/beats/[id]/edit/EditBeatForm";
 
 export const metadata: Metadata = { title: "Edit Beat" };
 
@@ -32,7 +32,7 @@ export default async function EditBeatPage({ params }: Props) {
   const serializedLicenses = JSON.parse(JSON.stringify(licenses));
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-shell max-w-3xl">
       <EditBeatForm beat={serializedBeat} licenses={serializedLicenses} />
     </div>
   );

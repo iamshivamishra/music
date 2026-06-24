@@ -4,7 +4,7 @@ import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
-  const rl = rateLimit(ip, { limit: 30, windowSec: 60, prefix: "error-report" });
+  const rl = await rateLimit(ip, { limit: 30, windowSec: 60, prefix: "error-report" });
   if (!rl.success) return rateLimitResponse(rl.resetAt);
 
   try {

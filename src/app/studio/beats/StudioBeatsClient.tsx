@@ -156,11 +156,11 @@ export default function StudioBeatsClient({
   const totalPlays = beats.reduce((sum, b) => sum + b.plays, 0);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-shell">
       {/* Header */}
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">My Beats</h1>
+          <h1 className="text-3xl font-semibold">My Beats</h1>
           <p className="text-muted-foreground">Manage, edit, and publish your beats</p>
         </div>
         <Button asChild>
@@ -173,9 +173,9 @@ export default function StudioBeatsClient({
 
       {/* Stats */}
       <div className="mb-8 grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Beats</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Total Beats</CardTitle>
             <Music className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -185,27 +185,27 @@ export default function StudioBeatsClient({
             </p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Plays</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Total Plays</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{totalPlays.toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Earnings</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Earnings</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">₹{earnings.toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Published</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Published</CardTitle>
             <Eye className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -215,14 +215,14 @@ export default function StudioBeatsClient({
       </div>
 
       {/* Status tabs */}
-      <div className="mb-6 flex items-center gap-1 rounded-lg border border-border/50 bg-card/50 p-1 w-fit">
+      <div className="mb-6 flex items-center gap-1 rounded-xl border border-border/50 bg-card/60 p-1.5 w-fit shadow-sm">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => navigateStatus(tab.value)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               currentStatus === tab.value
-                ? "bg-primary text-primary-foreground"
+                ? "bg-primary/90 text-primary-foreground"
                 : "text-muted-foreground hover:bg-accent"
             }`}
           >
@@ -238,7 +238,7 @@ export default function StudioBeatsClient({
 
       {/* Beats table */}
       {beats.length > 0 ? (
-        <Card className="border-border/50 bg-card/80 overflow-hidden">
+        <Card className="overflow-hidden rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -393,7 +393,7 @@ export default function StudioBeatsClient({
           </Table>
         </Card>
       ) : (
-        <Card className="border-border/50 bg-card/50">
+        <Card className="rounded-2xl border-border/50 bg-card/60 shadow-sm">
           <CardContent className="flex flex-col items-center py-16">
             <FileText className="mb-3 h-12 w-12 text-muted-foreground" />
             <p className="text-lg font-medium">

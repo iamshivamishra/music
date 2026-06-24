@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import SalesClient from "./SalesClient";
+import SalesClient from "@/app/studio/sales/SalesClient";
 
 export const metadata: Metadata = {
   title: "Sales History — Studio",

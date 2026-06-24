@@ -36,18 +36,17 @@ export default async function ProfilePage() {
   const isProducer = user.role === "producer" || user.role === "admin";
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Profile header */}
-      <Card className="border-border/50 bg-card/80">
+    <div className="page-shell max-w-4xl">
+      <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
         <CardContent className="flex flex-col items-center gap-4 p-6 sm:flex-row">
           <Avatar className="h-20 w-20">
             {avatarSrc && <AvatarImage src={avatarSrc} alt={displayName} />}
-            <AvatarFallback className="bg-primary/20 text-primary text-2xl">
+            <AvatarFallback className="bg-primary/20 text-2xl text-primary">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 text-center sm:text-left">
-            <h1 className="text-2xl font-bold">{displayName}</h1>
+            <h1 className="text-2xl font-semibold">{displayName}</h1>
             {user.username && (
               <p className="text-sm text-muted-foreground">@{user.username}</p>
             )}
@@ -84,8 +83,7 @@ export default async function ProfilePage() {
 
       <Separator className="my-8" />
 
-      {/* Purchase history */}
-      <Card className="border-border/50 bg-card/80">
+      <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShoppingBag className="h-5 w-5 text-primary" />

@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Search, SlidersHorizontal, X, Play, Clock, Music,
-  ArrowUpDown, Loader2, ChevronDown,
+  ArrowUpDown, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { marketplaceApi } from "@/lib/api/marketplace";
+import { formatDuration } from "@/lib/format";
 import { GENRE_OPTIONS, MOOD_OPTIONS } from "@/lib/validators/beat";
 
 interface MarketplaceBeat {
@@ -72,12 +72,6 @@ const SORT_OPTIONS = [
 ];
 
 const LIMIT = 12;
-
-function formatDuration(seconds: number): string {
-  const min = Math.floor(seconds / 60);
-  const sec = Math.floor(seconds % 60);
-  return `${min}:${sec.toString().padStart(2, "0")}`;
-}
 
 function BeatCardSkeleton() {
   return (
@@ -302,9 +296,7 @@ export default function MarketplaceClient() {
       else setLoading(true);
 
       try {
-        const res = await fetch(`/api/marketplace?${buildQueryString(p)}`);
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await marketplaceApi.list(buildQueryString(p));
 
         if (append) {
           setBeats((prev) => [...prev, ...data.beats]);

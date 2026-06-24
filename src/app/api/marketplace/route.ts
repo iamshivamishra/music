@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { beatService } from "@/lib/services/beat.service";
 import { licenseRepository } from "@/lib/repositories/license.repository";
 import { userRepository } from "@/lib/repositories/user.repository";
+import { toPublicBeatPayload } from "@/lib/serializers/beat";
 import { beatFilterSchema } from "@/lib/validators/beat";
 import { formatErrorResponse } from "@/lib/errors";
 
@@ -28,10 +29,11 @@ export async function GET(request: NextRequest) {
     ]);
 
     const beats = result.data.map((beat) => {
+      const safeBeat = toPublicBeatPayload(beat);
       const id = beat._id.toString();
       const producer = producerMap[beat.producerId.toString()];
       return {
-        ...beat,
+        ...safeBeat,
         startingPrice: priceMap[id] ?? null,
         producerName: producer?.name ?? "Unknown",
         producerUsername: producer?.username ?? null,

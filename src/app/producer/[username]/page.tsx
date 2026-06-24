@@ -10,6 +10,7 @@ import { userRepository } from "@/lib/repositories/user.repository";
 import { beatRepository } from "@/lib/repositories/beat.repository";
 import { licenseRepository } from "@/lib/repositories/license.repository";
 import { purchaseRepository } from "@/lib/repositories/purchase.repository";
+import { toPublicBeatForUi } from "@/lib/serializers/beat";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -98,7 +99,7 @@ export default async function ProducerProfilePage({ params }: Props) {
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+      <div className="app-container max-w-5xl">
         {/* Profile header */}
         <div className="relative -mt-16 flex flex-col items-center gap-4 sm:-mt-20 sm:flex-row sm:items-end sm:gap-6">
           <Avatar className="h-28 w-28 border-4 border-background shadow-xl sm:h-36 sm:w-36">
@@ -114,7 +115,7 @@ export default async function ProducerProfilePage({ params }: Props) {
 
           <div className="flex-1 text-center sm:pb-2 sm:text-left">
             <div className="flex items-center justify-center gap-2 sm:justify-start">
-              <h1 className="text-2xl font-bold sm:text-3xl">{displayName}</h1>
+              <h1 className="text-2xl font-semibold sm:text-3xl">{displayName}</h1>
               {producer.verified && (
                 <CheckCircle2 className="h-5 w-5 fill-primary text-primary-foreground" />
               )}
@@ -209,7 +210,7 @@ export default async function ProducerProfilePage({ params }: Props) {
               {beatsWithPrices.map(({ beat, startingPrice, isPurchased }) => (
                 <BeatCard
                   key={beat._id.toString()}
-                  beat={beat}
+                  beat={toPublicBeatForUi(beat)}
                   startingPrice={startingPrice}
                   isPurchased={isPurchased}
                 />

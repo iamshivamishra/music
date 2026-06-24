@@ -1,9 +1,9 @@
 import bcrypt from "bcryptjs";
 import { userRepository } from "@/lib/repositories/user.repository";
-import { ConflictError, UnauthorizedError } from "@/lib/errors";
+import { ConflictError, NotFoundError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { audit } from "@/lib/audit";
-import type { SignupInput, LoginInput } from "@/lib/validators/auth";
+import type { SignupInput } from "@/lib/validators/auth";
 import type { IUser, UserRole } from "@/types";
 
 const BCRYPT_ROUNDS = 12;
@@ -47,24 +47,6 @@ export const authService = {
     return user;
   },
 
-  async login(input: LoginInput): Promise<IUser> {
-    const user = await userRepository.findByEmail(input.email, true);
-    if (!user || !user.password) {
-      throw new UnauthorizedError("Invalid email or password");
-    }
-
-    const isValid = await bcrypt.compare(input.password, user.password);
-    if (!isValid) {
-      throw new UnauthorizedError("Invalid email or password");
-    }
-
-    logger.info("User logged in", { userId: user._id });
-    audit({ action: "user.login", userId: user._id.toString() });
-
-    const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword as IUser;
-  },
-
   async setRole(userId: string, role: UserRole): Promise<IUser> {
     let username: string | undefined;
     if (role === "producer") {
@@ -82,14 +64,11 @@ export const authService = {
       role,
       ...(username ? { username, displayName: (await userRepository.findById(userId))?.name } : {}),
     });
-    if (!updated) throw new Error("User not found");
+    if (!updated) throw new NotFoundError("User");
 
     logger.info("User role updated", { userId, role });
     audit({ action: "user.role_change", userId, metadata: { newRole: role } });
     return updated;
   },
 
-  async getProfile(userId: string): Promise<IUser | null> {
-    return userRepository.findById(userId);
-  },
 };

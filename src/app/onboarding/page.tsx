@@ -12,7 +12,7 @@ export default async function OnboardingPage() {
   if (!session?.user) redirect("/login");
 
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center px-4 py-12">
+    <div className="app-container flex min-h-[calc(100vh-8rem)] items-center justify-center py-10">
       <OnboardingForm userName={session.user.name || "there"} />
     </div>
   );

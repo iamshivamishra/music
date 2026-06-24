@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import MarketplaceClient from "./MarketplaceClient";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Marketplace — Trishul Beats",
@@ -11,6 +11,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function MarketplacePage() {
-  return <MarketplaceClient />;
+interface MarketplacePageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function MarketplacePage({ searchParams }: MarketplacePageProps) {
+  const rawParams = await searchParams;
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(rawParams)) {
+    if (typeof value === "string") {
+      params.set(key, value);
+    }
+  }
+
+  const query = params.toString();
+  redirect(query ? `/beats?${query}` : "/beats");
 }

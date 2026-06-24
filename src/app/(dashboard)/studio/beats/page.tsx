@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { beatService } from "@/lib/services/beat.service";
 import { purchaseRepository } from "@/lib/repositories/purchase.repository";
 import { licenseRepository } from "@/lib/repositories/license.repository";
-import StudioBeatsClient from "./StudioBeatsClient";
+import StudioBeatsClient from "@/app/studio/beats/StudioBeatsClient";
 import type { BeatStatus } from "@/types";
 
 export const metadata: Metadata = { title: "Studio — My Beats" };

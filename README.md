@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Trishul Beats
 
-## Getting Started
+Trishul Beats is a Next.js App Router marketplace for discovering, licensing, and downloading music beats.
 
-First, run the development server:
+## Tech Stack
+
+- Next.js (App Router)
+- TypeScript
+- NextAuth (Google + credentials)
+- MongoDB + Mongoose
+- Razorpay
+- Tailwind CSS + shadcn/ui
+
+## Quick Start
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Create local environment file:
+
+```bash
+cp .env.example .env
+```
+
+3. Fill required variables in `.env`.
+
+4. Start development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App runs at [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev` - start dev server
+- `npm run build` - production build
+- `npm run start` - run production server
+- `npm run lint` - run ESLint
+- `npm run typecheck` - run TypeScript checks (`--noEmit`)
+- `npm run test` - run tests once
+- `npm run test:coverage` - run tests with coverage
+- `npm run check` - lint + typecheck + test + build
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+See `.env.example` for all expected variables.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Core groups:
+- app/auth (`NEXT_PUBLIC_APP_URL`, `AUTH_SECRET`, Google OAuth keys)
+- database (`MONGODB_URI`)
+- payments (Razorpay public + server keys)
+- storage (`STORAGE_PROVIDER`, R2 or Cloudinary variables)
+- analytics/logging (`NEXT_PUBLIC_GA_ID`, `LOG_LEVEL`)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture Overview
 
-## Deploy on Vercel
+- `src/app` - routes and API route handlers
+- `src/components` - shared UI and feature components
+- `src/lib/services` - business logic
+- `src/lib/repositories` - persistence and query logic
+- `src/lib/models` - Mongoose models
+- `src/lib/validators` - request/input validation (Zod)
+- `src/lib/serializers` - safe DTO shaping for UI/API
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## CI
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The repository includes a GitHub Actions workflow that runs lint, typecheck, tests, and production build on pushes and pull requests.

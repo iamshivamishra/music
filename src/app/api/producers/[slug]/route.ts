@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { userRepository } from "@/lib/repositories/user.repository";
 import { beatRepository } from "@/lib/repositories/beat.repository";
+import { toPublicBeatPayload } from "@/lib/serializers/beat";
 import { formatErrorResponse, NotFoundError } from "@/lib/errors";
 
 export async function GET(
@@ -35,7 +36,7 @@ export async function GET(
         followersCount: producer.followersCount,
         salesCount: producer.salesCount,
       },
-      beats,
+      beats: beats.map(toPublicBeatPayload),
     });
   } catch (error) {
     return formatErrorResponse(error);

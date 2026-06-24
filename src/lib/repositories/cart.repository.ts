@@ -1,6 +1,11 @@
 import { connectDB } from "@/lib/db";
 import CartItem from "@/lib/models/Cart";
 import type { ICartItem } from "@/types";
+import type { ClientSession } from "mongoose";
+
+interface RepoOptions {
+  session?: ClientSession;
+}
 
 export const cartRepository = {
   async findByUser(userId: string): Promise<ICartItem[]> {
@@ -38,9 +43,9 @@ export const cartRepository = {
     return result.deletedCount > 0;
   },
 
-  async clear(userId: string): Promise<number> {
+  async clear(userId: string, options: RepoOptions = {}): Promise<number> {
     await connectDB();
-    const result = await CartItem.deleteMany({ userId });
+    const result = await CartItem.deleteMany({ userId }, { session: options.session });
     return result.deletedCount;
   },
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { userRepository } from "@/lib/repositories/user.repository";
-import EditProfileForm from "./EditProfileForm";
+import EditProfileForm from "@/app/profile/edit/EditProfileForm";
 
 export const metadata: Metadata = { title: "Edit Profile" };
 
@@ -16,7 +16,7 @@ export default async function EditProfilePage() {
   const serialized = JSON.parse(JSON.stringify(user));
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-shell max-w-2xl">
       <EditProfileForm user={serialized} />
     </div>
   );

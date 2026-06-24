@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function UploadPage() {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-shell max-w-2xl">
       <UploadForm />
     </div>
   );

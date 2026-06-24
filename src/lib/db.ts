@@ -30,4 +30,37 @@ export async function connectDB() {
   cached.conn = await cached.promise;
   return cached.conn;
 }
+
+export async function withTransaction<T>(
+  operation: (session: mongoose.ClientSession) => Promise<T>
+): Promise<T> {
+  await connectDB();
+  const session = await mongoose.startSession();
+
+  try {
+    let result: T | undefined;
+    await session.withTransaction(async () => {
+      result = await operation(session);
+    });
+    return result as T;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const unsupportedTransactions =
+      message.includes("Transaction numbers are only allowed") ||
+      message.includes("replica set");
+
+    if (unsupportedTransactions) {
+      const fallbackSession = await mongoose.startSession();
+      try {
+        return await operation(fallbackSession);
+      } finally {
+        await fallbackSession.endSession();
+      }
+    }
+
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+}
  

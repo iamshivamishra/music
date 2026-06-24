@@ -2,7 +2,7 @@ import { connectDB } from "@/lib/db";
 import Beat from "@/lib/models/Beat";
 import User from "@/lib/models/User";
 import type { IBeat, BeatStatus, BeatFilters, PaginatedResult } from "@/types";
-import type { FilterQuery, SortOrder } from "mongoose";
+import type { ClientSession, FilterQuery, SortOrder } from "mongoose";
 
 type SortOption = "newest" | "popular" | "most_sold" | "price_asc" | "price_desc";
 
@@ -13,6 +13,12 @@ const SORT_MAP: Record<SortOption, Record<string, SortOrder>> = {
   price_asc: { "licenses.price": 1 },
   price_desc: { "licenses.price": -1 },
 };
+
+const PUBLIC_BEAT_EXCLUSIONS = "-audioFullUrl -stemsUrl -storageKeys";
+
+interface RepoOptions {
+  session?: ClientSession;
+}
 
 export const beatRepository = {
   async findWithFilters(
@@ -68,7 +74,7 @@ export const beatRepository = {
 
     const [data, total] = await Promise.all([
       Beat.find(query)
-        .select("-audioFullUrl")
+        .select(PUBLIC_BEAT_EXCLUSIONS)
         .sort(sortOrder)
         .skip(skip)
         .limit(limit)
@@ -88,10 +94,15 @@ export const beatRepository = {
     };
   },
 
-  async findById(id: string, includeFullAudio = false): Promise<IBeat | null> {
+  async findById(
+    id: string,
+    includeFullAudio = false,
+    options: RepoOptions = {}
+  ): Promise<IBeat | null> {
     await connectDB();
     const query = Beat.findById(id);
-    if (!includeFullAudio) query.select("-audioFullUrl");
+    if (!includeFullAudio) query.select(PUBLIC_BEAT_EXCLUSIONS);
+    if (options.session) query.session(options.session);
     return query.lean<IBeat>();
   },
 
@@ -99,7 +110,11 @@ export const beatRepository = {
     await connectDB();
     const query: FilterQuery<IBeat> = { producerId };
     if (!includeUnpublished) query.isPublished = true;
-    return Beat.find(query).sort({ createdAt: -1 }).lean<IBeat[]>();
+    const dbQuery = Beat.find(query).sort({ createdAt: -1 });
+    if (!includeUnpublished) {
+      dbQuery.select(PUBLIC_BEAT_EXCLUSIONS);
+    }
+    return dbQuery.lean<IBeat[]>();
   },
 
   async findByProducerPaginated(
@@ -115,7 +130,7 @@ export const beatRepository = {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       Beat.find(query)
-        .select("-audioFullUrl")
+        .select(PUBLIC_BEAT_EXCLUSIONS)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -146,9 +161,9 @@ export const beatRepository = {
     return Beat.findByIdAndUpdate(id, data, { new: true }).lean<IBeat>();
   },
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, options: RepoOptions = {}): Promise<boolean> {
     await connectDB();
-    const result = await Beat.findByIdAndDelete(id);
+    const result = await Beat.findByIdAndDelete(id, { session: options.session });
     return !!result;
   },
 
@@ -157,15 +172,15 @@ export const beatRepository = {
     await Beat.findByIdAndUpdate(id, { $inc: { plays: 1 } });
   },
 
-  async incrementSalesCount(id: string): Promise<void> {
+  async incrementSalesCount(id: string, options: RepoOptions = {}): Promise<void> {
     await connectDB();
-    await Beat.findByIdAndUpdate(id, { $inc: { salesCount: 1 } });
+    await Beat.findByIdAndUpdate(id, { $inc: { salesCount: 1 } }, { session: options.session });
   },
 
   async findRecent(limit = 8): Promise<IBeat[]> {
     await connectDB();
     return Beat.find({ isPublished: true })
-      .select("-audioFullUrl")
+      .select(PUBLIC_BEAT_EXCLUSIONS)
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean<IBeat[]>();
@@ -174,7 +189,7 @@ export const beatRepository = {
   async findTrending(limit = 8): Promise<IBeat[]> {
     await connectDB();
     return Beat.find({ isPublished: true })
-      .select("-audioFullUrl")
+      .select(PUBLIC_BEAT_EXCLUSIONS)
       .sort({ plays: -1 })
       .limit(limit)
       .lean<IBeat[]>();
@@ -202,7 +217,7 @@ export const beatRepository = {
       isPublished: true,
       $or: [{ genre }, { producerId }],
     })
-      .select("-audioFullUrl")
+      .select(PUBLIC_BEAT_EXCLUSIONS)
       .sort({ plays: -1 })
       .limit(limit)
       .lean<IBeat[]>();
@@ -214,7 +229,7 @@ export const beatRepository = {
       _id: { $nin: existingIds },
       isPublished: true,
     })
-      .select("-audioFullUrl")
+      .select(PUBLIC_BEAT_EXCLUSIONS)
       .sort({ plays: -1 })
       .limit(limit - byGenre.length)
       .lean<IBeat[]>();

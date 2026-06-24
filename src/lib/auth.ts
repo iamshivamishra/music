@@ -7,6 +7,7 @@ import { connectDB } from "@/lib/db";
 import User from "@/lib/models/User";
 import bcrypt from "bcryptjs";
 import type { UserRole } from "@/types";
+import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 declare module "next-auth" {
   interface User {
@@ -27,6 +28,7 @@ declare module "@auth/core/jwt" {
   interface JWT {
     id: string;
     role: UserRole;
+    roleRefreshedAt?: number;
   }
 }
 
@@ -36,20 +38,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
+      allowDangerousEmailAccountLinking: false,
     }),
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.email || !credentials?.password) return null;
+
+        const email = (credentials.email as string).toLowerCase().trim();
+        const ip = request ? getClientIp(request) : "unknown";
+        const authLimit = await rateLimit(`${ip}:${email}`, {
+          prefix: "login",
+          limit: 8,
+          windowSec: 60 * 10,
+        });
+        if (!authLimit.success) {
+          return null;
+        }
 
         try {
           await connectDB();
           const user = await User.findOne({
-            email: (credentials.email as string).toLowerCase(),
+            email,
           }).select("+password");
 
           if (!user || !user.password) return null;
@@ -86,20 +99,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id!;
         token.role = (user.role as UserRole) || "buyer";
+        token.roleRefreshedAt = Date.now();
       }
 
       // When session is updated (e.g. after onboarding role selection)
       if (trigger === "update" && session?.role) {
         token.role = session.role as UserRole;
+        token.roleRefreshedAt = Date.now();
       }
 
-      // On subsequent requests, always fetch the latest role from DB
-      if (!user && token.id) {
+      // Refresh role periodically instead of querying on every request.
+      const roleRefreshIntervalMs = 5 * 60 * 1000;
+      const shouldRefreshRole =
+        !user &&
+        token.id &&
+        (!token.roleRefreshedAt || Date.now() - token.roleRefreshedAt > roleRefreshIntervalMs);
+
+      if (shouldRefreshRole) {
         try {
           await connectDB();
           const dbUser = await User.findById(token.id).select("role").lean();
           if (dbUser) {
             token.role = (dbUser.role as UserRole) || "buyer";
+            token.roleRefreshedAt = Date.now();
           }
         } catch {
           // keep existing token role on DB error

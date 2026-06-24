@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/db";
 
 interface RateLimitEntry {
   count: number;
@@ -6,6 +7,7 @@ interface RateLimitEntry {
 }
 
 const store = new Map<string, RateLimitEntry>();
+let indexInitialized = false;
 
 const CLEANUP_INTERVAL = 60_000;
 let lastCleanup = Date.now();
@@ -32,7 +34,7 @@ export interface RateLimitConfig {
  * In-memory rate limiter suitable for single-instance deployments.
  * For multi-instance, swap this implementation with a Redis-backed store.
  */
-export function rateLimit(
+function rateLimitInMemory(
   identifier: string,
   config: RateLimitConfig
 ): { success: boolean; remaining: number; resetAt: number } {
@@ -54,6 +56,70 @@ export function rateLimit(
 
   entry.count++;
   return { success: true, remaining: config.limit - entry.count, resetAt: entry.resetAt };
+}
+
+async function ensureIndexes() {
+  if (indexInitialized) return;
+  const db = await connectDB();
+  const collection = db.collection("rate_limits");
+  await collection.createIndex({ key: 1 }, { unique: true });
+  await collection.createIndex({ resetAt: 1 });
+  indexInitialized = true;
+}
+
+export async function rateLimit(
+  identifier: string,
+  config: RateLimitConfig
+): Promise<{ success: boolean; remaining: number; resetAt: number }> {
+  const key = `${config.prefix || "rl"}:${identifier}`;
+  const now = Date.now();
+  const resetAt = now + config.windowSec * 1000;
+
+  try {
+    await ensureIndexes();
+    const db = await connectDB();
+    const collection = db.collection<{
+      key: string;
+      count: number;
+      resetAt: number;
+      updatedAt: Date;
+    }>("rate_limits");
+
+    const active = await collection.findOneAndUpdate(
+      { key, resetAt: { $gt: now }, count: { $lt: config.limit } },
+      { $inc: { count: 1 }, $set: { updatedAt: new Date() } },
+      { returnDocument: "after" }
+    );
+
+    if (active) {
+      return {
+        success: true,
+        remaining: Math.max(0, config.limit - active.count),
+        resetAt: active.resetAt,
+      };
+    }
+
+    const blocked = await collection.findOne({ key, resetAt: { $gt: now } });
+    if (blocked && blocked.count >= config.limit) {
+      return { success: false, remaining: 0, resetAt: blocked.resetAt };
+    }
+
+    await collection.updateOne(
+      { key },
+      {
+        $set: {
+          count: 1,
+          resetAt,
+          updatedAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
+
+    return { success: true, remaining: config.limit - 1, resetAt };
+  } catch {
+    return rateLimitInMemory(identifier, config);
+  }
 }
 
 /**

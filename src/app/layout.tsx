@@ -61,7 +61,7 @@ export default async function RootLayout({
     description: "Discover and license high-quality beats from talented producers.",
     potentialAction: {
       "@type": "SearchAction",
-      target: `${appUrl}/marketplace?search={search_term_string}`,
+      target: `${appUrl}/beats?search={search_term_string}`,
       "query-input": "required name=search_term_string",
     },
   };

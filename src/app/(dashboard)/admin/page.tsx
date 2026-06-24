@@ -19,9 +19,9 @@ export default async function AdminPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="page-shell">
       <div className="mb-8">
-        <h1 className="flex items-center gap-2 text-3xl font-bold">
+        <h1 className="flex items-center gap-2 text-3xl font-semibold">
           <Shield className="h-7 w-7 text-primary" />
           Admin Dashboard
         </h1>
@@ -29,36 +29,36 @@ export default async function AdminPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Beats</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Total Beats</CardTitle>
             <Music className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{totalBeats}</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Buyers</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Buyers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{totalBuyers}</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Producers</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Producers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{totalProducers}</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50 bg-card/80">
+        <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Revenue</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>

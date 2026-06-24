@@ -30,7 +30,7 @@ const profilePresignSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request);
-    const rl = rateLimit(ip, { limit: 20, windowSec: 60, prefix: "upload" });
+    const rl = await rateLimit(ip, { limit: 20, windowSec: 60, prefix: "upload" });
     if (!rl.success) return rateLimitResponse(rl.resetAt);
 
     const session = await auth();

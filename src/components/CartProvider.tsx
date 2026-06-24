@@ -10,6 +10,8 @@ import {
 } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api/http";
+import { cartApi } from "@/lib/api/cart";
 import type { CartItemPopulated } from "@/types";
 
 const STORAGE_KEY = "trishul_cart";
@@ -74,9 +76,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   // Fetch server cart for logged-in users
   const fetchServerCart = useCallback(async () => {
     try {
-      const res = await fetch("/api/cart");
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await cartApi.get();
       setItems(data.items);
     } catch {
       /* ignore */
@@ -106,11 +106,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
 
     for (const item of local) {
       try {
-        await fetch("/api/cart", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(item),
-        });
+        await cartApi.add(item.beatId, item.licenseId);
       } catch {
         /* skip failed items */
       }
@@ -146,20 +142,15 @@ export default function CartProvider({ children }: { children: ReactNode }) {
 
       if (isLoggedIn) {
         try {
-          const res = await fetch("/api/cart", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ beatId, licenseId }),
-          });
-          if (!res.ok) {
-            const data = await res.json();
-            toast.error(data.error || "Could not add to cart");
-            return;
-          }
+          await cartApi.add(beatId, licenseId);
           await fetchServerCart();
           toast.success("Added to cart");
-        } catch {
-          toast.error("Something went wrong");
+        } catch (error) {
+          if (error instanceof ApiError) {
+            toast.error(error.message);
+          } else {
+            toast.error("Something went wrong");
+          }
         }
       } else {
         const local = getLocalCart();
@@ -192,7 +183,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
     async (beatId: string) => {
       if (isLoggedIn) {
         try {
-          await fetch(`/api/cart/${beatId}`, { method: "DELETE" });
+          await cartApi.remove(beatId);
           await fetchServerCart();
           toast.success("Removed from cart");
         } catch {
@@ -212,20 +203,15 @@ export default function CartProvider({ children }: { children: ReactNode }) {
     async (beatId: string, licenseId: string) => {
       if (isLoggedIn) {
         try {
-          const res = await fetch(`/api/cart/${beatId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ licenseId }),
-          });
-          if (!res.ok) {
-            const data = await res.json();
-            toast.error(data.error || "Could not update license");
-            return;
-          }
+          await cartApi.updateLicense(beatId, licenseId);
           await fetchServerCart();
           toast.success("License updated");
-        } catch {
-          toast.error("Something went wrong");
+        } catch (error) {
+          if (error instanceof ApiError) {
+            toast.error(error.message);
+          } else {
+            toast.error("Something went wrong");
+          }
         }
       } else {
         const local = getLocalCart().map((i) =>
@@ -244,7 +230,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = useCallback(async () => {
     if (isLoggedIn) {
       try {
-        await fetch("/api/cart", { method: "DELETE" });
+        await cartApi.clear();
         setItems([]);
         toast.success("Cart cleared");
       } catch {

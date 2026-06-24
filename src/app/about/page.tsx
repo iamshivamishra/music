@@ -9,10 +9,10 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
-      <div className="mb-12 text-center">
-        <h1 className="text-4xl font-bold">About Trishul Beats</h1>
-        <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
+    <div className="page-shell max-w-5xl">
+      <div className="page-header text-center">
+        <h1 className="text-3xl font-semibold sm:text-4xl">About Trishul Beats</h1>
+        <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
           We connect talented producers with artists looking for the perfect beat.
           Browse, preview, license — all in one place.
         </p>
@@ -25,11 +25,11 @@ export default function AboutPage() {
           { icon: Shield, title: "Secure Licensing", desc: "Clear license tiers (basic, premium, exclusive) with defined terms." },
           { icon: Zap, title: "Instant Delivery", desc: "Purchase and download immediately. No waiting around." },
         ].map((item) => (
-          <Card key={item.title} className="border-border/50 bg-card/80">
+          <Card key={item.title} className="border-border/60 bg-card/80 shadow-sm">
             <CardContent className="p-6">
-              <item.icon className="mb-3 h-8 w-8 text-primary" />
-              <h3 className="text-lg font-semibold">{item.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{item.desc}</p>
+              <item.icon className="mb-3 h-7 w-7 text-primary" />
+              <h2 className="text-lg font-semibold">{item.title}</h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.desc}</p>
             </CardContent>
           </Card>
         ))}

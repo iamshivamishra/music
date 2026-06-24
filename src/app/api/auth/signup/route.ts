@@ -7,7 +7,7 @@ import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request);
-    const rl = rateLimit(ip, { limit: 5, windowSec: 300, prefix: "signup" });
+    const rl = await rateLimit(ip, { limit: 5, windowSec: 300, prefix: "signup" });
     if (!rl.success) return rateLimitResponse(rl.resetAt);
 
     const body = await request.json();

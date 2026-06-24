@@ -1,6 +1,8 @@
 import { beatRepository } from "@/lib/repositories/beat.repository";
 import { licenseRepository } from "@/lib/repositories/license.repository";
-import { ForbiddenError, NotFoundError } from "@/lib/errors";
+import { purchaseRepository } from "@/lib/repositories/purchase.repository";
+import { withTransaction } from "@/lib/db";
+import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { LICENSE_DEFAULTS } from "@/lib/validators/license";
 import { logger } from "@/lib/logger";
 import { audit } from "@/lib/audit";
@@ -143,8 +145,15 @@ export const beatService = {
       throw new ForbiddenError("You can only delete your own beats");
     }
 
-    await licenseRepository.deleteByBeatId(id);
-    await beatRepository.delete(id);
+    const purchasesCount = await purchaseRepository.countByBeat(id);
+    if (purchasesCount > 0) {
+      throw new ConflictError("Cannot delete beat because it already has purchases");
+    }
+
+    await withTransaction(async (session) => {
+      await licenseRepository.deleteByBeatId(id, { session });
+      await beatRepository.delete(id, { session });
+    });
 
     logger.info("Beat deleted", { beatId: id, deletedBy: userId });
     audit({ action: "beat.delete", userId, resourceType: "beat", resourceId: id });

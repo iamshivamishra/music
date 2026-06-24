@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -121,10 +120,50 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
   html {
     @apply font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply tracking-tight;
+  }
+}
+
+@layer utilities {
+  .app-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .page-shell {
+    @apply mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8;
+  }
+
+  .page-header {
+    @apply mb-8 space-y-2 sm:mb-10;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold sm:text-3xl;
+  }
+
+  .page-subtitle {
+    @apply max-w-3xl text-sm text-muted-foreground sm:text-base;
+  }
+
+  .surface {
+    @apply rounded-xl border border-border/60 bg-card/70 shadow-sm;
+  }
+
+  .surface-muted {
+    @apply rounded-xl border border-border/50 bg-muted/30;
+  }
+
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
 }
 
@@ -136,3 +175,74 @@
 .dark ::-webkit-scrollbar-track { background: oklch(0.13 0.024 22); }
 .dark ::-webkit-scrollbar-thumb { background: oklch(0.28 0.04 22); }
 .dark ::-webkit-scrollbar-thumb:hover { background: oklch(0.62 0.23 22); }
+
+@keyframes doodle-float {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg);
+  }
+  20% {
+    transform: translate3d(-2px, -7px, 10px) rotateX(5deg) rotateY(-5deg);
+  }
+  40% {
+    transform: translate3d(2px, 1px, 0) rotateX(-2deg) rotateY(4deg);
+  }
+  60% {
+    transform: translate3d(-1px, -3px, 8px) rotateX(3deg) rotateY(-3deg);
+  }
+  80% {
+    transform: translate3d(1px, -1px, 0) rotateX(-1deg) rotateY(2deg);
+  }
+}
+
+@keyframes doodle-drift {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  35% {
+    transform: translate3d(7px, -4px, 0) rotate(2.5deg);
+  }
+  65% {
+    transform: translate3d(-4px, 3px, 0) rotate(-2deg);
+  }
+}
+
+@keyframes doodle-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.16);
+    opacity: 0.45;
+  }
+}
+
+.hero-doodle-layer {
+  perspective: 900px;
+  transform-style: preserve-3d;
+}
+
+.doodle-float {
+  transform-origin: center;
+  transform-style: preserve-3d;
+  animation: doodle-float 8s ease-in-out infinite;
+  will-change: transform;
+}
+
+.doodle-drift {
+  animation: doodle-drift 9s ease-in-out infinite;
+  will-change: transform;
+}
+
+.doodle-pulse {
+  animation: doodle-pulse 5.5s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doodle-float,
+  .doodle-drift,
+  .doodle-pulse {
+    animation: none;
+  }
+}

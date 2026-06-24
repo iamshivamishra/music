@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { tierAccent } from "@/lib/license-ui";
 import { useCart } from "@/components/CartProvider";
 import RazorpayButton from "@/components/RazorpayButton";
 import type { ILicense } from "@/types";
@@ -44,15 +45,6 @@ function tierColor(type: string, selected: boolean) {
     case "premium": return "border-amber-500/50 bg-amber-500/5 ring-1 ring-amber-500/20";
     case "unlimited": return "border-violet-500/50 bg-violet-500/5 ring-1 ring-violet-500/20";
     default: return "border-primary/50 bg-primary/5";
-  }
-}
-
-function tierAccent(type: string) {
-  switch (type) {
-    case "basic": return "text-primary";
-    case "premium": return "text-amber-400";
-    case "unlimited": return "text-violet-400";
-    default: return "text-primary";
   }
 }
 
