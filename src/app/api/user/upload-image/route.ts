@@ -1,11 +1,16 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { storageService } from "@/lib/services/storage.service";
-import { userRepository } from "@/lib/repositories/user.repository";
+import { authService } from "@/lib/services/auth.service";
 import { formatErrorResponse, UnauthorizedError, ValidationError } from "@/lib/errors";
+import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await rateLimit(ip, { limit: 5, windowSec: 60, prefix: "upload-image" });
+    if (!rl.success) return rateLimitResponse(rl.resetAt);
+
     const session = await auth();
     if (!session?.user) throw new UnauthorizedError();
 
@@ -31,11 +36,7 @@ export async function POST(request: NextRequest) {
       type
     );
 
-    if (type === "avatar") {
-      await userRepository.update(session.user.id, { avatarUrl: result.url });
-    } else {
-      await userRepository.update(session.user.id, { coverImageUrl: result.url });
-    }
+    await authService.updateProfileImage(session.user.id, type, result.url);
 
     return Response.json({ url: result.url });
   } catch (error) {

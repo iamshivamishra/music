@@ -15,12 +15,12 @@ function extractCloudinaryKey(url) {
   }
 }
 
-function extractR2Key(url, r2PublicUrl) {
-  if (!r2PublicUrl || !url.startsWith(r2PublicUrl)) return null;
-  return url.slice(r2PublicUrl.length).replace(/^\/+/, "");
+function extractPublicKey(url, publicUrl) {
+  if (!publicUrl || !url.startsWith(publicUrl)) return null;
+  return url.slice(publicUrl.length).replace(/^\/+/, "");
 }
 
-function inferStorageKey(value, r2PublicUrl) {
+function inferStorageKey(value, publicUrl) {
   if (!value) return null;
   if (!value.startsWith("http://") && !value.startsWith("https://")) {
     return value;
@@ -29,8 +29,8 @@ function inferStorageKey(value, r2PublicUrl) {
   const fromCloudinary = extractCloudinaryKey(value);
   if (fromCloudinary) return fromCloudinary;
 
-  const fromR2 = extractR2Key(value, r2PublicUrl);
-  if (fromR2) return fromR2;
+  const fromPublicUrl = extractPublicKey(value, publicUrl);
+  if (fromPublicUrl) return fromPublicUrl;
 
   return null;
 }
@@ -39,8 +39,8 @@ async function run() {
   const mongoUri = process.env.MONGODB_URI;
   if (!mongoUri) throw new Error("MONGODB_URI is required");
 
-  const r2PublicUrl = process.env.R2_PUBLIC_URL
-    ? process.env.R2_PUBLIC_URL.replace(/\/+$/, "")
+  const publicUrl = process.env.AWS_S3_PUBLIC_URL
+    ? process.env.AWS_S3_PUBLIC_URL.replace(/\/+$/, "")
     : "";
 
   await mongoose.connect(mongoUri, { bufferCommands: false });
@@ -56,19 +56,19 @@ async function run() {
     const nextKeys = {
       preview:
         storageKeys.preview ||
-        inferStorageKey(beat.audioTaggedUrl, r2PublicUrl) ||
+        inferStorageKey(beat.audioTaggedUrl, publicUrl) ||
         undefined,
       master:
         storageKeys.master ||
-        inferStorageKey(beat.audioFullUrl, r2PublicUrl) ||
+        inferStorageKey(beat.audioFullUrl, publicUrl) ||
         undefined,
       stems:
         storageKeys.stems ||
-        inferStorageKey(beat.stemsUrl, r2PublicUrl) ||
+        inferStorageKey(beat.stemsUrl, publicUrl) ||
         undefined,
       artwork:
         storageKeys.artwork ||
-        inferStorageKey(beat.coverUrl, r2PublicUrl) ||
+        inferStorageKey(beat.coverUrl, publicUrl) ||
         undefined,
     };
 

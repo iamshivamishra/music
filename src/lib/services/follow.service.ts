@@ -20,6 +20,10 @@ export const followService = {
     return { following: inserted || (await followRepository.isFollowing(userId, producerId)) };
   },
 
+  async getStatus(userId: string, producerId: string): Promise<boolean> {
+    return followRepository.isFollowing(userId, producerId);
+  },
+
   async unfollow(userId: string, producerId: string): Promise<{ following: boolean }> {
     await withTransaction(async (session) => {
       const removed = await followRepository.unfollow(userId, producerId, { session });

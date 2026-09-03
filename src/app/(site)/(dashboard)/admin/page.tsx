@@ -1,0 +1,149 @@
+import type { Metadata } from "next";
+import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+
+import { adminService } from "@/lib/services/admin.service";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+import {
+  Shield,
+  Users,
+  Music,
+  ShoppingBag,
+  IndianRupee,
+  Wallet,
+} from "lucide-react";
+
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Admin Dashboard",
+};
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <Card className="rounded-2xl border-border/50 bg-card/80 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {label}
+        </CardTitle>
+
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+
+      <CardContent>
+        <p className="text-3xl font-bold">{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default async function AdminPage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  if (session.user.role !== "admin") {
+    redirect("/studio?error=admin_access_required");
+  }
+
+  const stats = await adminService.getDashboardStats();
+
+  return (
+    <div className="page-shell">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="flex items-center gap-2 text-3xl font-semibold">
+          <Shield className="h-7 w-7 text-primary" />
+          Admin Dashboard
+        </h1>
+
+        <p className="text-muted-foreground">
+          Platform overview and analytics
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <StatCard
+          icon={Users}
+          label="Total Users"
+          value={stats.totalUsers}
+        />
+
+        <StatCard
+          icon={Users}
+          label="Buyers"
+          value={stats.totalBuyers}
+        />
+
+        <StatCard
+          icon={Users}
+          label="Producers"
+          value={stats.totalProducers}
+        />
+
+        <StatCard
+          icon={Music}
+          label="Total Beats"
+          value={stats.totalBeats}
+        />
+
+        <StatCard
+          icon={ShoppingBag}
+          label="Total Sales"
+          value={stats.totalSales}
+        />
+
+        <StatCard
+          icon={IndianRupee}
+          label="Total Revenue"
+          value={`₹${stats.totalRevenue.toLocaleString("en-IN")}`}
+        />
+
+        <StatCard
+          icon={Wallet}
+          label="Pending Payouts"
+          value={stats.pendingPayouts}
+        />
+      </div>
+
+      <div className="mt-8 rounded-2xl border border-border/50 bg-card/70 p-5 shadow-sm">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          Admin Shortcuts
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Jump from high-level metrics to operational views.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button asChild variant="outline">
+            <Link href="/admin/users">Manage users</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/admin/beats">Audit beat catalog</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/admin/sales">Inspect sales and revenue</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/admin/payouts">Review pending payouts</Link>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

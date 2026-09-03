@@ -1,4 +1,5 @@
 ﻿import mongoose from "mongoose";
+import { logger } from "@/lib/logger";
  
 const MONGODB_URI = process.env.MONGODB_URI!;
  
@@ -27,8 +28,18 @@ export async function connectDB() {
       .then((m) => m.connection);
   }
  
-  cached.conn = await cached.promise;
-  return cached.conn;
+  try {
+    cached.conn = await cached.promise;
+    return cached.conn;
+  } catch (error) {
+    cached.promise = null;
+    cached.conn = null;
+    const message =
+      error instanceof Error ? error.message : "Could not connect to the database.";
+    logger.error("MongoDB connection failed", { error: message });
+    // Re-throw a plain Error so App Router can serialize it to error.tsx.
+    throw new Error(message);
+  }
 }
 
 export async function withTransaction<T>(
@@ -52,12 +63,21 @@ export async function withTransaction<T>(
     if (unsupportedTransactions) {
       const allowFallback = process.env.ALLOW_NON_TRANSACTIONAL_FALLBACK === "true";
       const isProd = process.env.NODE_ENV === "production";
+
+      if (isProd && allowFallback) {
+        logger.warn("ALLOW_NON_TRANSACTIONAL_FALLBACK is enabled in production — data integrity at risk");
+      }
+
       if (isProd && !allowFallback) {
         throw new Error(
           "MongoDB transactions are not supported by this deployment. Use a replica set or set ALLOW_NON_TRANSACTIONAL_FALLBACK=true explicitly."
         );
       }
       const fallbackSession = await mongoose.startSession();
+      logger.warn("Running operation without transaction — MongoDB does not support transactions in this deployment", {
+        allowFallback,
+        nodeEnv: process.env.NODE_ENV,
+      });
       try {
         return await operation(fallbackSession);
       } finally {

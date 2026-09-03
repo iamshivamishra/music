@@ -1,257 +1,315 @@
+import { ValidationError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
+import { storageAdapter } from "@/lib/storage/adapter";
 import {
-  getStorageProvider,
-  validateFile,
   buildBeatKey,
   buildProfileKey,
-  FILE_LIMITS,
+  buildServiceDeliveryKey,
+  isOwnedBeatAssetKey,
+  type BeatFileCategory,
   type FileCategory,
-} from "@/lib/storage/config";
-import {
-  uploadToR2,
-  deleteFromR2,
-  getSignedDownloadUrl as r2DownloadUrl,
-  getPublicUrl as r2PublicUrl,
-  createPresignedUploadUrl,
-} from "@/lib/storage/r2";
-import {
-  createCloudinaryPresignedUpload,
-  uploadToCloudinary,
-  deleteFromCloudinary,
-  getCloudinarySignedDownloadUrl,
-  getCloudinaryUrl,
-} from "@/lib/storage/cloudinary";
-import { logger } from "@/lib/logger";
+  type ProfileFileCategory,
+} from "@/lib/storage/keys";
+import { validateFile } from "@/lib/storage/limits";
+import { MULTIPART_PART_SIZE } from "@/lib/upload-client";
+import type { IBeatStorageKeys } from "@/types";
 
-function resourceTypeForCategory(
+const UPLOAD_URL_TTL_SECONDS = 600;
+
+export interface StoredObject {
+  url: string;
+  key: string;
+}
+
+export interface PresignedUpload {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+}
+
+interface BeatAssetFiles {
+  preview: File;
+  master: File;
+  stems?: File;
+  artwork?: File;
+}
+
+interface BeatAssetResults {
+  preview: StoredObject;
+  master: StoredObject;
+  stems?: StoredObject;
+  artwork?: StoredObject;
+}
+
+function assertValidFile(
+  file: { size: number; type: string },
   category: FileCategory
-): "image" | "video" | "raw" {
-  if (["artwork", "avatar", "cover"].includes(category)) return "image";
-  if (["preview", "master"].includes(category)) return "video";
-  return "raw";
+): void {
+  const validation = validateFile(file, category);
+  if (!validation.valid) {
+    throw new ValidationError("Validation failed", {
+      [category]: [validation.error],
+    });
+  }
+}
+
+async function putFile(
+  file: File,
+  key: string,
+  category: FileCategory
+): Promise<StoredObject> {
+  assertValidFile(file, category);
+  const body = Buffer.from(await file.arrayBuffer());
+  await storageAdapter.putObject({
+    key,
+    body,
+    contentType: file.type,
+  });
+  return { url: storageAdapter.publicUrl(key), key };
+}
+
+function isHttpUrl(value: string): boolean {
+  return value.startsWith("http://") || value.startsWith("https://");
 }
 
 export const storageService = {
   SIGNED_URL_TTL_SECONDS: 900,
 
-  // ─── Presigned (client-side) uploads ────────────────────────────
-
-  /**
-   * Returns a presigned PUT URL for the client to upload directly to R2.
-   * Only available when provider = r2.
-   */
   async getPresignedUploadUrl(
     producerId: string,
     beatId: string,
-    category: "preview" | "master" | "stems" | "artwork",
+    category: BeatFileCategory,
     contentType: string,
     fileSize: number
-  ): Promise<{
-    uploadUrl: string;
-    publicUrl: string;
-    key: string;
-    fields?: Record<string, string>;
-  }> {
-    const validation = validateFile({ size: fileSize, type: contentType }, category);
-    if (!validation.valid) throw new Error(validation.error);
-
+  ): Promise<PresignedUpload> {
+    assertValidFile({ size: fileSize, type: contentType }, category);
     const key = buildBeatKey(producerId, beatId, category);
-    const provider = getStorageProvider();
-    if (provider === "cloudinary") {
-      return createCloudinaryPresignedUpload(key, contentType, category, fileSize);
-    }
-    return createPresignedUploadUrl(key, contentType, fileSize);
+    const uploadUrl = await storageAdapter.presignPut({
+      key,
+      contentType,
+      expiresIn: UPLOAD_URL_TTL_SECONDS,
+    });
+    return { uploadUrl, publicUrl: storageAdapter.publicUrl(key), key };
   },
 
-  /**
-   * Presigned URL for profile image uploads.
-   */
   async getPresignedProfileUploadUrl(
     producerId: string,
-    category: "avatar" | "cover",
+    category: ProfileFileCategory,
     contentType: string,
     fileSize: number
-  ): Promise<{
-    uploadUrl: string;
-    publicUrl: string;
-    key: string;
-    fields?: Record<string, string>;
-  }> {
-    const validation = validateFile({ size: fileSize, type: contentType }, category);
-    if (!validation.valid) throw new Error(validation.error);
-
+  ): Promise<PresignedUpload> {
+    assertValidFile({ size: fileSize, type: contentType }, category);
     const key = buildProfileKey(producerId, category);
-    const provider = getStorageProvider();
-    if (provider === "cloudinary") {
-      return createCloudinaryPresignedUpload(key, contentType, category, fileSize);
-    }
-    return createPresignedUploadUrl(key, contentType, fileSize);
+    const uploadUrl = await storageAdapter.presignPut({
+      key,
+      contentType,
+      expiresIn: UPLOAD_URL_TTL_SECONDS,
+    });
+    return { uploadUrl, publicUrl: storageAdapter.publicUrl(key), key };
   },
 
-  // ─── Server-side uploads ────────────────────────────────────────
-
-  /**
-   * Upload a beat file from the server. Works with both R2 and Cloudinary.
-   */
   async uploadBeatFile(
     file: File,
     producerId: string,
     beatId: string,
-    category: "preview" | "master" | "stems" | "artwork"
-  ): Promise<{ url: string; key: string }> {
-    const validation = validateFile(file, category);
-    if (!validation.valid) throw new Error(validation.error);
-
-    const key = buildBeatKey(producerId, beatId, category);
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const provider = getStorageProvider();
-
-    let url: string;
-    if (provider === "cloudinary") {
-      url = await uploadToCloudinary(buffer, key, resourceTypeForCategory(category));
-    } else {
-      url = await uploadToR2(buffer, key, file.type);
-    }
-
-    logger.info("Beat file uploaded", { provider, category, key, size: file.size });
-    return { url, key };
+    category: BeatFileCategory
+  ): Promise<StoredObject> {
+    const result = await putFile(
+      file,
+      buildBeatKey(producerId, beatId, category),
+      category
+    );
+    logger.info("Beat file uploaded", { category, key: result.key, size: file.size });
+    return result;
   },
 
-  /**
-   * Upload a profile image (avatar or cover) from the server.
-   */
+  async uploadBeatAssets(
+    producerId: string,
+    beatId: string,
+    files: BeatAssetFiles
+  ): Promise<BeatAssetResults> {
+    const [preview, master, stems, artwork] = await Promise.all([
+      this.uploadBeatFile(files.preview, producerId, beatId, "preview"),
+      this.uploadBeatFile(files.master, producerId, beatId, "master"),
+      files.stems
+        ? this.uploadBeatFile(files.stems, producerId, beatId, "stems")
+        : Promise.resolve(undefined),
+      files.artwork
+        ? this.uploadBeatFile(files.artwork, producerId, beatId, "artwork")
+        : Promise.resolve(undefined),
+    ]);
+
+    return { preview, master, stems, artwork };
+  },
+
   async uploadProfileImage(
     file: File,
     producerId: string,
-    category: "avatar" | "cover"
-  ): Promise<{ url: string; key: string }> {
-    const validation = validateFile(file, category);
-    if (!validation.valid) throw new Error(validation.error);
-
-    const key = buildProfileKey(producerId, category);
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const provider = getStorageProvider();
-
-    let url: string;
-    if (provider === "cloudinary") {
-      url = await uploadToCloudinary(buffer, key, "image");
-    } else {
-      url = await uploadToR2(buffer, key, file.type);
-    }
-
-    logger.info("Profile image uploaded", { provider, category, key, size: file.size });
-    return { url, key };
+    category: ProfileFileCategory
+  ): Promise<StoredObject> {
+    const result = await putFile(
+      file,
+      buildProfileKey(producerId, category),
+      category
+    );
+    logger.info("Profile image uploaded", { category, key: result.key, size: file.size });
+    return result;
   },
 
-  // ─── Legacy server-side helpers (kept for backward compat) ──────
+  assertOwnedBeatAssetKeys(
+    producerId: string,
+    keys: IBeatStorageKeys
+  ): void {
+    const entries: Array<[BeatFileCategory, string | undefined]> = [
+      ["preview", keys.preview],
+      ["master", keys.master],
+      ["stems", keys.stems],
+      ["artwork", keys.artwork],
+    ];
 
-  async uploadBeatAudio(
-    file: File,
-    variant: "tagged" | "full",
-    producerId?: string,
-    beatId?: string
-  ): Promise<{ url: string; key: string }> {
-    const category = variant === "tagged" ? "preview" : "master";
+    const invalid = entries.find(
+      ([category, key]) => key !== undefined && !isOwnedBeatAssetKey(key, producerId, category)
+    );
 
-    if (producerId && beatId) {
-      return this.uploadBeatFile(file, producerId, beatId, category);
+    if (invalid) {
+      throw new ValidationError("Validation failed", {
+        uploadedAssets: [`Invalid uploaded asset key for ${invalid[0]}`],
+      });
     }
-
-    const validation = validateFile(file, category);
-    if (!validation.valid) throw new Error(validation.error);
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const ts = Date.now();
-    const key = `beats/${variant}/${ts}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const provider = getStorageProvider();
-
-    let url: string;
-    if (provider === "cloudinary") {
-      url = await uploadToCloudinary(buffer, key, resourceTypeForCategory(category));
-    } else {
-      url = await uploadToR2(buffer, key, file.type);
-    }
-
-    logger.info("Beat audio uploaded (legacy)", {
-      provider,
-      key,
-      variant,
-      size: file.size,
-    });
-    return { url, key };
   },
 
-  async uploadCoverImage(file: File, folder = "covers"): Promise<{ url: string; key: string }> {
-    const validation = validateFile(file, "artwork");
-    if (!validation.valid) throw new Error(validation.error);
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const ts = Date.now();
-    const key = `${folder}/${ts}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const provider = getStorageProvider();
-
-    let url: string;
-    if (provider === "cloudinary") {
-      url = await uploadToCloudinary(buffer, key, "image");
-    } else {
-      url = await uploadToR2(buffer, key, file.type);
-    }
-
-    logger.info("Cover image uploaded", { provider, key, folder, size: file.size });
-    return { url, key };
-  },
-
-  async uploadAvatar(file: File): Promise<{ url: string; key: string }> {
-    const validation = validateFile(file, "avatar");
-    if (!validation.valid) throw new Error(validation.error);
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const ts = Date.now();
-    const key = `avatars/${ts}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const provider = getStorageProvider();
-
-    const url =
-      provider === "cloudinary"
-        ? await uploadToCloudinary(buffer, key, "image")
-        : await uploadToR2(buffer, key, file.type);
-
-    logger.info("Avatar uploaded", { provider, key, size: file.size });
-    return { url, key };
-  },
-
-  // ─── Delete / download ─────────────────────────────────────────
-
-  async deleteFile(key: string): Promise<void> {
-    const provider = getStorageProvider();
-    if (provider === "cloudinary") {
-      await deleteFromCloudinary(key);
-    } else {
-      await deleteFromR2(key);
-    }
+  resolveObjectKey(value: string): string | null {
+    if (!isHttpUrl(value)) return value;
+    return storageAdapter.tryKeyFromPublicUrl(value);
   },
 
   async getDownloadUrl(
     key: string,
     options: { expiresInSeconds?: number } = {}
   ): Promise<string> {
-    const expiresInSeconds = options.expiresInSeconds ?? this.SIGNED_URL_TTL_SECONDS;
-    const provider = getStorageProvider();
-    if (provider === "cloudinary") {
-      return getCloudinarySignedDownloadUrl(key, expiresInSeconds);
+    return storageAdapter.presignGet({
+      key,
+      expiresIn: options.expiresInSeconds ?? this.SIGNED_URL_TTL_SECONDS,
+    });
+  },
+
+  async getDownloadUrlForValue(
+    value: string,
+    options: { expiresInSeconds?: number } = {}
+  ): Promise<string> {
+    const key = this.resolveObjectKey(value);
+    if (!key) return value;
+    return this.getDownloadUrl(key, options);
+  },
+
+  async presignBeatAudio(
+    beat: { audioTaggedUrl: string; storageKeys?: { preview?: string; master?: string } },
+    hasPurchased: boolean
+  ): Promise<string> {
+    const key = hasPurchased
+      ? beat.storageKeys?.master
+      : beat.storageKeys?.preview;
+
+    if (key) {
+      return this.getDownloadUrl(key);
     }
-    return r2DownloadUrl(key, expiresInSeconds);
+
+    const fallbackUrl = beat.audioTaggedUrl;
+    const resolvedKey = this.resolveObjectKey(fallbackUrl);
+    if (resolvedKey) {
+      return this.getDownloadUrl(resolvedKey);
+    }
+
+    return fallbackUrl;
+  },
+
+  async presignCoverUrl(coverUrl: string | undefined): Promise<string> {
+    if (!coverUrl) return "";
+    const key = this.resolveObjectKey(coverUrl);
+    if (key) {
+      return this.getDownloadUrl(key);
+    }
+    return coverUrl;
+  },
+
+  async deleteFile(key: string): Promise<void> {
+    await storageAdapter.deleteObject(key);
   },
 
   getPublicUrl(key: string): string {
-    if (getStorageProvider() === "cloudinary") {
-      return getCloudinaryUrl(key);
-    }
-    return r2PublicUrl(key);
+    return storageAdapter.publicUrl(key);
   },
 
-  /**
-   * Return file limits for the client to validate before uploading.
-   */
-  getFileLimits() {
-    return FILE_LIMITS;
+  async initiateMultipartUpload(
+    producerId: string,
+    beatId: string,
+    category: BeatFileCategory,
+    contentType: string,
+    fileSize: number
+  ): Promise<{ uploadId: string; key: string; publicUrl: string; partUrls: string[] }> {
+    assertValidFile({ size: fileSize, type: contentType }, category);
+    const key = buildBeatKey(producerId, beatId, category);
+
+    const { uploadId } = await storageAdapter.createMultipartUpload({
+      key,
+      contentType,
+    });
+
+    const partCount = Math.ceil(fileSize / MULTIPART_PART_SIZE);
+    const partUrls = await Promise.all(
+      Array.from({ length: partCount }, (_, i) =>
+        storageAdapter.presignUploadPart({
+          key,
+          uploadId,
+          partNumber: i + 1,
+          expiresIn: UPLOAD_URL_TTL_SECONDS,
+        })
+      )
+    );
+
+    return { uploadId, key, publicUrl: storageAdapter.publicUrl(key), partUrls };
+  },
+
+  async initiateServiceDeliveryUpload(
+    producerId: string,
+    jobId: string,
+    contentType: string,
+    fileSize: number
+  ): Promise<{ uploadId: string; key: string; publicUrl: string; partUrls: string[] }> {
+    assertValidFile({ size: fileSize, type: contentType }, "service-delivery");
+    const key = buildServiceDeliveryKey(producerId, jobId);
+
+    const { uploadId } = await storageAdapter.createMultipartUpload({
+      key,
+      contentType,
+    });
+
+    const partCount = Math.ceil(fileSize / MULTIPART_PART_SIZE);
+    const partUrls = await Promise.all(
+      Array.from({ length: partCount }, (_, i) =>
+        storageAdapter.presignUploadPart({
+          key,
+          uploadId,
+          partNumber: i + 1,
+          expiresIn: UPLOAD_URL_TTL_SECONDS,
+        })
+      )
+    );
+
+    return { uploadId, key, publicUrl: storageAdapter.publicUrl(key), partUrls };
+  },
+
+  async completeMultipartUpload(
+    key: string,
+    uploadId: string,
+    parts: Array<{ PartNumber: number; ETag: string }>
+  ): Promise<void> {
+    await storageAdapter.completeMultipartUpload({ key, uploadId, parts });
+    logger.info("Multipart upload finalized", { key, uploadId, parts: parts.length });
+  },
+
+  async abortMultipartUpload(key: string, uploadId: string): Promise<void> {
+    await storageAdapter.abortMultipartUpload({ key, uploadId });
+    logger.info("Multipart upload aborted", { key, uploadId });
   },
 };

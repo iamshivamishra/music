@@ -54,8 +54,17 @@ Core groups:
 - app/auth (`NEXT_PUBLIC_APP_URL`, `AUTH_SECRET`, Google OAuth keys)
 - database (`MONGODB_URI`)
 - payments (Razorpay public + server keys)
-- storage (`STORAGE_PROVIDER`, R2 or Cloudinary variables)
+- storage (`AWS_S3_REGION`, `AWS_S3_BUCKET`, `AWS_S3_PUBLIC_URL`, AWS credentials)
 - analytics/logging (`NEXT_PUBLIC_GA_ID`, `LOG_LEVEL`)
+
+## S3 Storage
+
+All beat and profile files go to a single AWS S3 bucket.
+
+Required bucket setup:
+- **CORS** — allow `PUT` from the app origin with the `Content-Type` header (browser uploads use presigned PUT URLs).
+- **Public reads** — previews, artwork, and profile images are served from `AWS_S3_PUBLIC_URL` (CloudFront or a public prefix). Keep master WAV and stems private; downloads use time-limited signed GET URLs.
+- **IAM** — the app user needs `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on the bucket.
 
 ## Architecture Overview
 

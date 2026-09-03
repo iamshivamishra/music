@@ -1,6 +1,6 @@
 import type { ClientSession } from "mongoose";
 import { connectDB } from "@/lib/db";
-import { Follow } from "@/lib/models/follow.model";
+import Follow from "@/lib/models/Follow";
 
 interface RepoOptions {
   session?: ClientSession;
@@ -60,5 +60,13 @@ export const followRepository = {
   async countFollowers(producerId: string, options: RepoOptions = {}): Promise<number> {
     await connectDB();
     return Follow.countDocuments({ following: producerId }).session(options.session ?? null);
+  },
+
+  async aggregateFollowerCounts(): Promise<Map<string, number>> {
+    await connectDB();
+    const results = await Follow.aggregate<{ _id: string; count: number }>([
+      { $group: { _id: "$following", count: { $sum: 1 } } },
+    ]);
+    return new Map(results.map((r) => [r._id.toString(), r.count]));
   },
 };

@@ -5,6 +5,12 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }));
 
+vi.mock("@/lib/rate-limit", () => ({
+  rateLimit: vi.fn(async () => ({ success: true, remaining: 9, resetAt: Date.now() })),
+  getClientIp: vi.fn(() => "127.0.0.1"),
+  rateLimitResponse: vi.fn(() => Response.json({ error: "rate_limited" }, { status: 429 })),
+}));
+
 vi.mock("@/lib/logger", () => ({
   logger: {
     error: vi.fn(),

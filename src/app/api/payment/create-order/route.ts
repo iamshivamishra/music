@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { paymentService } from "@/lib/services/payment.service";
-import { createOrderSchema, checkoutCartSchema } from "@/lib/validators/payment";
+import { paymentCreateRequestSchema } from "@/lib/validators/payment";
+import { attributionFromCookies } from "@/lib/attribution";
 import { formatErrorResponse, UnauthorizedError } from "@/lib/errors";
 import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+import { resolveUnlistedAccessToken } from "@/lib/unlisted-token";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,15 +17,19 @@ export async function POST(request: NextRequest) {
     if (!session?.user) throw new UnauthorizedError();
 
     const body = await request.json();
-
-    if (body.fromCart) {
-      const input = checkoutCartSchema.parse(body);
-      const order = await paymentService.checkoutCart(input, session.user.id);
-      return Response.json(order);
+    const input = paymentCreateRequestSchema.parse(body);
+    if ("beatId" in input && !("fromCart" in input) && !("packId" in input)) {
+      input.accessToken = await resolveUnlistedAccessToken({
+        beatId: input.beatId,
+        bodyToken: input.accessToken,
+      });
     }
-
-    const input = createOrderSchema.parse(body);
-    const order = await paymentService.createOrder(input, session.user.id);
+    const attribution = attributionFromCookies(request.cookies);
+    const order = await paymentService.createCheckoutOrder(
+      input,
+      session.user.id,
+      attribution
+    );
     return Response.json(order);
   } catch (error) {
     return formatErrorResponse(error);

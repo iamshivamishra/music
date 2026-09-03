@@ -48,6 +48,13 @@ export class ConflictError extends AppError {
   }
 }
 
+export class PayloadTooLargeError extends AppError {
+  constructor(message = "Export is too large to generate") {
+    super(message, 413, "PAYLOAD_TOO_LARGE");
+    this.name = "PayloadTooLargeError";
+  }
+}
+
 export function formatZodError(error: ZodError): Record<string, string[]> {
   const fieldErrors: Record<string, string[]> = {};
   for (const issue of error.issues) {

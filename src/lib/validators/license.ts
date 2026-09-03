@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export const LICENSE_TYPES = ["basic", "premium", "unlimited"] as const;
+export const LICENSE_TYPES = ["basic", "premium", "unlimited", "exclusive"] as const;
+export const LEASE_LICENSE_TYPES = ["basic", "premium", "unlimited"] as const;
 
 export type LicenseDefaults = {
   name: string;
@@ -43,12 +44,22 @@ const LICENSE_DEFAULTS: Record<(typeof LICENSE_TYPES)[number], LicenseDefaults> 
     terms:
       "WAV + MP3 + stems. Unlimited streams. Full commercial rights. Beat remains on marketplace.",
   },
+  exclusive: {
+    name: "Exclusive Rights",
+    price: 49999,
+    streamLimit: -1,
+    includesWav: true,
+    includesStems: true,
+    commercialUse: true,
+    terms:
+      "Full exclusive rights. Beat removed from marketplace. All stems included. Buyer owns commercial rights. Existing leases honored until expiry.",
+  },
 };
 
 export const createLicenseSchema = z.object({
   beatId: z.string().min(1, "Beat ID is required"),
   type: z.enum(LICENSE_TYPES, {
-    error: "License type must be basic, premium, or unlimited",
+    error: "License type must be basic, premium, unlimited, or exclusive",
   }),
   name: z.string().min(2).max(60).trim().optional(),
   price: z.coerce.number().min(1, "Price must be at least ₹1"),
@@ -71,6 +82,32 @@ export const updateLicenseSchema = z.object({
 });
 
 export { LICENSE_DEFAULTS };
+
+export function licenseDisplayName(type: string | undefined): string {
+  if (!type) return "License";
+  const defaults = LICENSE_DEFAULTS[type as keyof typeof LICENSE_DEFAULTS];
+  return defaults?.name ?? "License";
+}
+
+export function packDisplayName(tier: string | undefined): string {
+  if (!tier) return "Pack";
+  const licenseName = licenseDisplayName(tier);
+  if (licenseName.endsWith(" License")) {
+    return `${licenseName.slice(0, -" License".length)} Pack`;
+  }
+  return `${licenseName} Pack`;
+}
+
+export const verifyLicenseSchema = z
+  .object({
+    licenseNumber: z.string().min(1).optional(),
+    verificationHash: z.string().min(1).optional(),
+  })
+  .refine((data) => data.licenseNumber || data.verificationHash, {
+    message: "Either licenseNumber or verificationHash is required",
+  });
+
+export type VerifyLicenseInput = z.infer<typeof verifyLicenseSchema>;
 
 export type CreateLicenseInput = z.infer<typeof createLicenseSchema>;
 export type UpdateLicenseInput = z.infer<typeof updateLicenseSchema>;

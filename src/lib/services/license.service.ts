@@ -1,11 +1,14 @@
 import { licenseRepository } from "@/lib/repositories/license.repository";
 import { beatRepository } from "@/lib/repositories/beat.repository";
 import { purchaseRepository } from "@/lib/repositories/purchase.repository";
+import { withTransaction } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ConflictError } from "@/lib/errors";
-import { LICENSE_DEFAULTS } from "@/lib/validators/license";
+import { canViewBeat, type BeatAccessContext } from "@/lib/services/beat-access";
+import { LICENSE_DEFAULTS, LICENSE_TYPES } from "@/lib/validators/license";
 import { logger } from "@/lib/logger";
+import { audit } from "@/lib/audit";
 import type { CreateLicenseInput, UpdateLicenseInput } from "@/lib/validators/license";
-import type { ILicense, LicenseType } from "@/types";
+import type { ILicense } from "@/types";
 
 async function assertOwnership(beatId: string, userId: string, userRole: string) {
   const beat = await beatRepository.findById(beatId);
@@ -17,7 +20,16 @@ async function assertOwnership(beatId: string, userId: string, userRole: string)
 }
 
 export const licenseService = {
-  async getForBeat(beatId: string, activeOnly = true): Promise<ILicense[]> {
+  async getForBeat(
+    beatId: string,
+    activeOnly = true,
+    access?: BeatAccessContext
+  ): Promise<ILicense[]> {
+    const beat = await beatRepository.findById(beatId);
+    if (!beat) throw new NotFoundError("Beat");
+    if (!canViewBeat(beat, access ?? {})) {
+      throw new NotFoundError("Beat");
+    }
     return licenseRepository.findByBeatId(beatId, activeOnly);
   },
 
@@ -32,14 +44,18 @@ export const licenseService = {
     userId: string,
     userRole: string
   ): Promise<ILicense> {
-    await assertOwnership(input.beatId, userId, userRole);
+    const beat = await assertOwnership(input.beatId, userId, userRole);
+
+    if (input.type === "exclusive" && beat.exclusiveBuyerId) {
+      throw new ConflictError("Cannot create an exclusive license for a beat that has already been exclusively sold");
+    }
 
     const existing = await licenseRepository.findByBeatId(input.beatId, false);
     if (existing.some((l) => l.type === input.type)) {
       throw new ConflictError(`A ${input.type} license already exists for this beat`);
     }
 
-    const defaults = LICENSE_DEFAULTS[input.type as LicenseType];
+    const defaults = LICENSE_DEFAULTS[input.type as (typeof LICENSE_TYPES)[number]];
     const name = input.name || defaults.name;
 
     const license = await licenseRepository.create({
@@ -56,6 +72,7 @@ export const licenseService = {
     });
 
     logger.info("License created", { licenseId: license._id, beatId: input.beatId });
+    audit({ action: "license.create", userId, resourceType: "license", resourceId: license._id.toString(), metadata: { beatId: input.beatId, type: input.type } });
     return license;
   },
 
@@ -72,6 +89,7 @@ export const licenseService = {
     if (!updated) throw new NotFoundError("License");
 
     logger.info("License updated", { licenseId: id });
+    audit({ action: "license.update", userId, resourceType: "license", resourceId: id, metadata: { fields: Object.keys(input) } });
     return updated;
   },
 
@@ -81,7 +99,12 @@ export const licenseService = {
     userRole: string
   ): Promise<void> {
     const license = await this.getById(id);
-    await assertOwnership(license.beatId.toString(), userId, userRole);
+    const beat = await assertOwnership(license.beatId.toString(), userId, userRole);
+
+    if (license.type === "exclusive" && beat.exclusiveBuyerId) {
+      throw new ConflictError("Cannot delete an exclusive license after the beat has been exclusively sold");
+    }
+
     const purchaseCount = await purchaseRepository.countByLicense(id);
     if (purchaseCount > 0) {
       throw new ConflictError("Cannot delete a license that has existing purchases");
@@ -89,6 +112,7 @@ export const licenseService = {
 
     await licenseRepository.delete(id);
     logger.info("License deleted", { licenseId: id });
+    audit({ action: "license.delete", userId, resourceType: "license", resourceId: id, metadata: { beatId: license.beatId.toString(), type: license.type } });
   },
 
   async resetToDefaults(
@@ -101,12 +125,11 @@ export const licenseService = {
     if (purchaseCount > 0) {
       throw new ConflictError("Cannot reset licenses for a beat with existing purchases");
     }
-    await licenseRepository.deleteByBeatId(beatId);
-
-    const defaultLicenses = Object.entries(LICENSE_DEFAULTS).map(
-      ([type, defaults]) => ({
+    const defaultLicenses = Object.entries(LICENSE_DEFAULTS)
+      .filter(([type]) => type !== "exclusive")
+      .map(([type, defaults]) => ({
         beatId: beatId as unknown as ILicense["beatId"],
-        type: type as LicenseType,
+        type: type as (typeof LICENSE_TYPES)[number],
         name: defaults.name,
         price: defaults.price,
         streamLimit: defaults.streamLimit,
@@ -118,8 +141,13 @@ export const licenseService = {
       })
     );
 
-    const created = await licenseRepository.createMany(defaultLicenses);
+    const created = await withTransaction(async (session) => {
+      await licenseRepository.deleteByBeatId(beatId, { session });
+      return licenseRepository.createMany(defaultLicenses, { session });
+    });
+
     logger.info("Licenses reset to defaults", { beatId });
+    audit({ action: "license.reset_defaults", userId, resourceType: "beat", resourceId: beatId });
     return created;
   },
 };

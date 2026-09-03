@@ -1,6 +1,6 @@
 import { connectDB } from "@/lib/db";
 import CartItem from "@/lib/models/Cart";
-import type { ICartItem } from "@/types";
+import type { ICartItem, LicenseType } from "@/types";
 import type { ClientSession } from "mongoose";
 
 interface RepoOptions {
@@ -18,11 +18,26 @@ export const cartRepository = {
     return CartItem.findOne({ userId, beatId }).lean<ICartItem>();
   },
 
+  async findPackItem(userId: string, packId: string): Promise<ICartItem | null> {
+    await connectDB();
+    return CartItem.findOne({ userId, packId }).lean<ICartItem>();
+  },
+
   async add(userId: string, beatId: string, licenseId: string): Promise<ICartItem> {
     await connectDB();
     const item = await CartItem.findOneAndUpdate(
       { userId, beatId },
       { userId, beatId, licenseId, addedAt: new Date() },
+      { upsert: true, new: true }
+    ).lean<ICartItem>();
+    return item!;
+  },
+
+  async addPack(userId: string, packId: string, packTier: LicenseType): Promise<ICartItem> {
+    await connectDB();
+    const item = await CartItem.findOneAndUpdate(
+      { userId, packId },
+      { userId, packId, packTier, addedAt: new Date() },
       { upsert: true, new: true }
     ).lean<ICartItem>();
     return item!;
@@ -37,9 +52,24 @@ export const cartRepository = {
     ).lean<ICartItem>();
   },
 
+  async updatePackTier(userId: string, packId: string, packTier: LicenseType): Promise<ICartItem | null> {
+    await connectDB();
+    return CartItem.findOneAndUpdate(
+      { userId, packId },
+      { packTier },
+      { new: true }
+    ).lean<ICartItem>();
+  },
+
   async remove(userId: string, beatId: string): Promise<boolean> {
     await connectDB();
     const result = await CartItem.deleteOne({ userId, beatId });
+    return result.deletedCount > 0;
+  },
+
+  async removePack(userId: string, packId: string): Promise<boolean> {
+    await connectDB();
+    const result = await CartItem.deleteOne({ userId, packId });
     return result.deletedCount > 0;
   },
 

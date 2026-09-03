@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const input = signupSchema.parse(body);
-    const user = await authService.signup(input);
+    const inviteToken = typeof body.inviteToken === "string" ? body.inviteToken : undefined;
+    const user = await authService.signup({ ...input, inviteToken });
 
     return Response.json(
       {

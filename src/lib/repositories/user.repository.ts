@@ -1,6 +1,6 @@
 import { connectDB } from "@/lib/db";
 import User from "@/lib/models/User";
-import type { IUser } from "@/types";
+import type { IProducerStore, IUser } from "@/types";
 import type { ClientSession } from "mongoose";
 
 interface RepoOptions {
@@ -15,11 +15,23 @@ export const userRepository = {
     return query.lean<IUser>();
   },
 
+  async findByEmails(emails: string[]): Promise<IUser[]> {
+    await connectDB();
+    if (emails.length === 0) return [];
+    const normalized = emails.map((email) => email.toLowerCase());
+    return User.find({ email: { $in: normalized } }).lean<IUser[]>();
+  },
+
   async findById(id: string, includePassword = false): Promise<IUser | null> {
     await connectDB();
     const query = User.findById(id);
     if (includePassword) query.select("+password");
     return query.lean<IUser>();
+  },
+
+  async findByIdWithTaxProfile(id: string): Promise<IUser | null> {
+    await connectDB();
+    return User.findById(id).select("+taxProfile").lean<IUser>();
   },
 
   async findByIds(ids: string[]): Promise<IUser[]> {
@@ -51,9 +63,49 @@ export const userRepository = {
     return userWithoutPassword as unknown as IUser;
   },
 
-  async update(id: string, data: Partial<IUser>): Promise<IUser | null> {
+  async update(id: string, data: Partial<IUser>, options: RepoOptions = {}): Promise<IUser | null> {
     await connectDB();
-    return User.findByIdAndUpdate(id, data, { new: true }).lean<IUser>();
+    return User.findByIdAndUpdate(id, data, { new: true, session: options.session }).lean<IUser>();
+  },
+
+  async updateAndUnset(
+    id: string,
+    set: Record<string, unknown>,
+    unset: string[],
+    options: RepoOptions = {}
+  ): Promise<IUser | null> {
+    await connectDB();
+    const update: Record<string, unknown> = {};
+    if (Object.keys(set).length > 0) update.$set = set;
+    if (unset.length > 0) {
+      update.$unset = Object.fromEntries(unset.map((field) => [field, 1]));
+    }
+    if (Object.keys(update).length === 0) {
+      return this.findById(id);
+    }
+    return User.findByIdAndUpdate(id, update, {
+      new: true,
+      session: options.session,
+    }).lean<IUser>();
+  },
+
+  async findExpiredFoundingProducers(): Promise<IUser[]> {
+    await connectDB();
+    return User.find({
+      producerTier: "founding",
+      producerTierExpiresAt: { $lt: new Date() },
+    })
+      .select("name email producerTier producerTierExpiresAt platformFeeOverride")
+      .lean<IUser[]>();
+  },
+
+  async updateStore(producerId: string, store: IProducerStore): Promise<IUser | null> {
+    await connectDB();
+    return User.findByIdAndUpdate(
+      producerId,
+      { $set: { store } },
+      { new: true }
+    ).lean<IUser>();
   },
 
   async usernameExists(username: string, excludeUserId?: string): Promise<boolean> {
@@ -76,12 +128,60 @@ export const userRepository = {
     return (await User.countDocuments(query)) > 0;
   },
 
+  async findProducerIdsBySearch(query: string): Promise<string[]> {
+    await connectDB();
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const producers = await User.find(
+      {
+        role: "producer",
+        $or: [
+          { name: { $regex: escaped, $options: "i" } },
+          { displayName: { $regex: escaped, $options: "i" } },
+          { username: { $regex: escaped, $options: "i" } },
+        ],
+      },
+      { _id: 1 }
+    ).lean();
+    return producers.map((p) => p._id.toString());
+  },
+
   async findProducers(limit = 20): Promise<IUser[]> {
     await connectDB();
     return User.find({ role: "producer" })
       .sort({ salesCount: -1, createdAt: -1 })
       .limit(limit)
       .lean<IUser[]>();
+  },
+
+  async findFoundingProducers(limit = 12): Promise<IUser[]> {
+    await connectDB();
+    return User.find({
+      role: "producer",
+      producerTier: "founding",
+      $or: [
+        { producerTierExpiresAt: { $gt: new Date() } },
+        { producerTierExpiresAt: null },
+      ],
+    })
+      .select("name displayName username avatarUrl producerTier")
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean<IUser[]>();
+  },
+
+  async searchProducersByUsername(
+    query: string,
+    limit = 8
+  ): Promise<Pick<IUser, "_id" | "username" | "displayName" | "name" | "avatarUrl">[]> {
+    await connectDB();
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return User.find({
+      role: { $in: ["producer", "admin"] },
+      username: { $regex: `^${escaped}`, $options: "i" },
+    })
+      .select("username displayName name avatarUrl")
+      .limit(limit)
+      .lean<Pick<IUser, "_id" | "username" | "displayName" | "name" | "avatarUrl">[]>();
   },
 
   async incrementSalesCount(producerId: string, options: RepoOptions = {}): Promise<void> {
@@ -120,6 +220,46 @@ export const userRepository = {
     );
   },
 
+  async setResetToken(
+    userId: string,
+    hash: string,
+    expiry: Date
+  ): Promise<void> {
+    await connectDB();
+    await User.findByIdAndUpdate(userId, {
+      resetTokenHash: hash,
+      resetTokenExpiry: expiry,
+    });
+  },
+
+  async findByResetToken(hash: string): Promise<IUser | null> {
+    await connectDB();
+    return User.findOne({
+      resetTokenHash: hash,
+      resetTokenExpiry: { $gt: new Date() },
+    })
+      .select("+resetTokenHash +resetTokenExpiry")
+      .lean<IUser>();
+  },
+
+  async clearResetToken(userId: string): Promise<void> {
+    await connectDB();
+    await User.findByIdAndUpdate(userId, {
+      $unset: { resetTokenHash: 1, resetTokenExpiry: 1 },
+    });
+  },
+
+  async updatePasswordAndClearResetToken(
+    userId: string,
+    hashedPassword: string
+  ): Promise<void> {
+    await connectDB();
+    await User.findByIdAndUpdate(userId, {
+      $set: { password: hashedPassword },
+      $unset: { resetTokenHash: 1, resetTokenExpiry: 1 },
+    });
+  },
+
   async countByRole(role: string): Promise<number> {
     await connectDB();
     return User.countDocuments({ role });
@@ -140,15 +280,79 @@ export const userRepository = {
       .lean();
   },
 
-  async updateRole(userId: string, role: "buyer" | "producer" | "admin") {
+  async updateRole(userId: string, role: "buyer" | "producer" | "admin"): Promise<IUser | null> {
     await connectDB();
-    return User.findByIdAndUpdate(userId, { role });
+    return User.findByIdAndUpdate(userId, { role }, { new: true }).lean<IUser>();
   },
 
-  async toggleVerified(userId: string) {
+  async setVerified(userId: string, verified: boolean): Promise<IUser | null> {
     await connectDB();
-    const user = await User.findById(userId).select("verified");
-    if (!user) return null;
-    return User.findByIdAndUpdate(userId, { verified: !user.verified });
+    return User.findByIdAndUpdate(userId, { verified }, { new: true }).lean<IUser>();
+  },
+
+  async findProducersForSitemap(limit = 200): Promise<{ username: string; updatedAt: Date }[]> {
+    await connectDB();
+    return User.find({ role: "producer", username: { $exists: true, $ne: "" } })
+      .select("username updatedAt")
+      .sort({ salesCount: -1 })
+      .limit(limit)
+      .lean<{ username: string; updatedAt: Date }[]>();
+  },
+
+  async findProducersAdmin(limit = 200): Promise<IUser[]> {
+    await connectDB();
+    return User.find({ role: { $in: ["producer", "admin"] } })
+      .select(
+        "name username email verified salesCount producerTier producerTierExpiresAt platformFeeOverride createdAt"
+      )
+      .sort({ salesCount: -1, createdAt: -1 })
+      .limit(limit)
+      .lean<IUser[]>();
+  },
+
+  async findProducersWithField(
+    field: string
+  ): Promise<Array<{ _id: string; [key: string]: unknown }>> {
+    await connectDB();
+    return User.find({ role: "producer" })
+      .select(`_id ${field}`)
+      .lean<Array<{ _id: string; [key: string]: unknown }>>();
+  },
+
+  async findAllWithField(
+    field: string
+  ): Promise<Array<{ _id: string; [key: string]: unknown }>> {
+    await connectDB();
+    return User.find()
+      .select(`_id ${field}`)
+      .lean<Array<{ _id: string; [key: string]: unknown }>>();
+  },
+
+  async bulkUpdateSalesCount(
+    updates: Array<{ id: string; salesCount: number }>
+  ): Promise<void> {
+    await connectDB();
+    await User.bulkWrite(
+      updates.map((u) => ({
+        updateOne: {
+          filter: { _id: u.id },
+          update: { $set: { salesCount: u.salesCount } },
+        },
+      }))
+    );
+  },
+
+  async bulkUpdateFollowersCount(
+    updates: Array<{ id: string; followersCount: number }>
+  ): Promise<void> {
+    await connectDB();
+    await User.bulkWrite(
+      updates.map((u) => ({
+        updateOne: {
+          filter: { _id: u.id },
+          update: { $set: { followersCount: u.followersCount } },
+        },
+      }))
+    );
   },
 };

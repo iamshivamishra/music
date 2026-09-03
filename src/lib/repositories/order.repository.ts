@@ -1,6 +1,7 @@
 import { connectDB } from "@/lib/db";
 import Order from "@/lib/models/Order";
-import type { IOrder, OrderStatus } from "@/types";
+import { toValidObjectIdOrNull } from "@/lib/security/object-id";
+import type { IOrder, OrderStatus, PaginatedResult } from "@/types";
 import type { ClientSession } from "mongoose";
 
 interface RepoOptions {
@@ -96,15 +97,18 @@ export const orderRepository = {
     id: string,
     paymentData: {
       razorpayPaymentId: string;
-      razorpaySignature: string;
+      razorpaySignature?: string;
       paidAt: Date;
     },
     options: RepoOptions = {}
   ): Promise<IOrder | null> {
     await connectDB();
     return Order.findOneAndUpdate(
-      { _id: id, status: "pending" },
-      { status: "paid", ...paymentData },
+      { _id: id, status: { $in: ["pending", "failed"] } },
+      {
+        $set: { status: "paid", ...paymentData },
+        $unset: { failureReason: 1 },
+      },
       { new: true, session: options.session }
     ).lean<IOrder>();
   },
@@ -126,5 +130,148 @@ export const orderRepository = {
   async countByBuyer(buyerId: string, options: RepoOptions = {}): Promise<number> {
     await connectDB();
     return Order.countDocuments({ buyerId, status: "paid" }).session(options.session ?? null);
+  },
+
+  async updateInvoiceFields(
+    orderId: string,
+    fields: { invoiceNumber?: string; invoicePdfKey?: string; gstBreakup?: IOrder["gstBreakup"] },
+    options: RepoOptions = {}
+  ): Promise<IOrder | null> {
+    await connectDB();
+    return Order.findByIdAndUpdate(orderId, { $set: fields }, {
+      new: true,
+      session: options.session,
+    }).lean<IOrder>();
+  },
+
+  async getNextInvoiceNumber(): Promise<string> {
+    await connectDB();
+    const year = new Date().getFullYear();
+    const prefix = `INV-${year}-`;
+    const lastInvoice = await Order.findOne({
+      invoiceNumber: { $regex: `^${prefix}` },
+    })
+      .sort({ invoiceNumber: -1 })
+      .select("invoiceNumber")
+      .lean<Pick<IOrder, "invoiceNumber">>();
+
+    const lastSeq = lastInvoice?.invoiceNumber
+      ? parseInt(lastInvoice.invoiceNumber.replace(prefix, ""), 10)
+      : 0;
+    return `${prefix}${String(lastSeq + 1).padStart(4, "0")}`;
+  },
+
+  async findByBuyerPaginated(
+    buyerId: string,
+    { page, limit, status }: { page: number; limit: number; status?: OrderStatus }
+  ): Promise<PaginatedResult<IOrder>> {
+    await connectDB();
+    const filter: Record<string, unknown> = { buyerId };
+    if (status) filter.status = status;
+    const [data, total] = await Promise.all([
+      Order.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean<IOrder[]>(),
+      Order.countDocuments(filter),
+    ]);
+    const totalPages = Math.ceil(total / limit);
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    };
+  },
+
+  async findByDownloadToken(token: string): Promise<IOrder | null> {
+    await connectDB();
+    return Order.findOne({
+      downloadToken: token,
+      downloadTokenExpiry: { $gt: new Date() },
+    }).lean<IOrder>();
+  },
+
+  async findByDownloadTokenAny(token: string): Promise<IOrder | null> {
+    await connectDB();
+    return Order.findOne({ downloadToken: token }).lean<IOrder>();
+  },
+
+  async setDownloadToken(
+    id: string,
+    token: string,
+    expiry: Date,
+    options: RepoOptions = {}
+  ): Promise<IOrder | null> {
+    await connectDB();
+    return Order.findByIdAndUpdate(
+      id,
+      { downloadToken: token, downloadTokenExpiry: expiry },
+      { new: true, session: options.session }
+    ).lean<IOrder>();
+  },
+
+  async linkGuestOrders(guestEmail: string, buyerId: string, options: RepoOptions = {}): Promise<number> {
+    await connectDB();
+    const result = await Order.updateMany(
+      { guestEmail, status: "paid", buyerId: { $exists: false } },
+      { $set: { buyerId }, $unset: { guestEmail: 1 } },
+      { session: options.session }
+    );
+    return result.modifiedCount;
+  },
+
+  async findPendingByGuestEmailAndBeat(
+    guestEmail: string,
+    beatId: string,
+  ): Promise<IOrder | null> {
+    await connectDB();
+    return Order.findOne({
+      guestEmail,
+      status: "pending",
+      "items.beatId": beatId,
+    })
+      .sort({ createdAt: -1 })
+      .lean<IOrder>();
+  },
+
+  async findByRazorpayPaymentId(
+    razorpayPaymentId: string,
+    options: RepoOptions = {}
+  ): Promise<IOrder | null> {
+    await connectDB();
+    return Order.findOne({ razorpayPaymentId })
+      .session(options.session ?? null)
+      .lean<IOrder>();
+  },
+
+  async findPendingByOfferId(offerId: string): Promise<IOrder | null> {
+    await connectDB();
+    return Order.findOne({ offerId, status: "pending" })
+      .sort({ createdAt: -1 })
+      .lean<IOrder>();
+  },
+
+  async findByRazorpayOrderIds(ids: string[]): Promise<IOrder[]> {
+    await connectDB();
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (unique.length === 0) return [];
+
+    const objectIds = unique
+      .map((id) => toValidObjectIdOrNull(id))
+      .filter((id): id is NonNullable<typeof id> => id !== null);
+
+    const query =
+      objectIds.length > 0
+        ? { $or: [{ razorpayOrderId: { $in: unique } }, { _id: { $in: objectIds } }] }
+        : { razorpayOrderId: { $in: unique } };
+
+    return Order.find(query)
+      .select("razorpayOrderId invoiceNumber gstBreakup status couponCode guestEmail buyerId")
+      .lean<IOrder[]>();
   },
 };

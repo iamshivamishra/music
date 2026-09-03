@@ -1,0 +1,129 @@
+---
+description: Page layout conventions — page-shell usage, layout ownership, navigation sync
+globs: src/app/**/*.tsx
+alwaysApply: false
+---
+
+# Page Layout
+
+## Page shell convention
+
+Every dashboard page under `src/app/(dashboard)/**` must use the `page-shell` utility class as its root wrapper. This class provides consistent responsive padding and max-width:
+
+```css
+/* defined in globals.css */
+.page-shell  → mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8
+.page-header → mb-8 space-y-2 sm:mb-10
+.page-title  → text-2xl font-semibold sm:text-3xl
+```
+
+### Width variants
+
+- **Default** — `page-shell` (max-w-7xl) for standard pages
+- **Narrow** — `page-shell max-w-2xl` for forms (upload, edit profile)
+- **Wide** — `page-shell max-w-6xl` for data tables (sales, admin)
+
+### Rules
+
+- Pages must NOT add their own `px-*` / `py-*` — `page-shell` handles responsive padding.
+- Loading skeletons (`loading.tsx`) must also wrap in `page-shell`.
+- Never use bare `space-y-*` as a root wrapper — it has no padding or max-width.
+- Never use inline `px-4 py-8` instead of `page-shell`.
+
+## Layout ownership
+
+```
+(dashboard)/layout.tsx  →  DashboardShell  →  SidebarNav + MobileDrawer
+    └── profile/layout.tsx   → auth guard only, NO sidebar
+    └── studio/layout.tsx    → auth guard only, NO sidebar
+    └── admin/layout.tsx     → has its own sidebar (skips DashboardShell)
+```
+
+- `(dashboard)/layout.tsx` owns ALL dashboard navigation via `DashboardShell`.
+- Child layouts (profile, studio) must ONLY contain auth guards or metadata — never sidebars or navigation.
+- Child layouts must NEVER render `<aside>` or `<nav>` that duplicates parent navigation.
+
+### Adding a new nav link
+
+When adding a new dashboard page, add its nav link to **all three** files:
+
+1. `src/components/layout/SidebarNav.tsx` — desktop sidebar
+2. `src/components/layout/MobileDrawer.tsx` — mobile drawer
+3. `src/components/layout/DashboardShell.tsx` — `allLinks` array for header title resolution
+
+## Page structure template
+
+```typescript
+// ✅ GOOD — server page with page-shell
+export default async function SomePage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const data = await someService.getData(session.user.id);
+
+  return (
+    <div className="page-shell">
+      <div className="page-header">
+        <h1 className="page-title">Page Title</h1>
+        <p className="text-muted-foreground">Subtitle text</p>
+      </div>
+      <SomeClient data={data} />
+    </div>
+  );
+}
+
+// ✅ GOOD — loading skeleton with page-shell
+export default function Loading() {
+  return (
+    <div className="page-shell">
+      <Skeleton className="mb-8 h-8 w-44" />
+      <Skeleton className="h-64 w-full rounded-xl" />
+    </div>
+  );
+}
+
+// ❌ BAD — bare space-y with no padding or max-width
+export default async function SomePage() {
+  return (
+    <div className="space-y-6">
+      <SomeClient data={data} />
+    </div>
+  );
+}
+
+// ❌ BAD — child layout with its own sidebar
+export default async function ProfileLayout({ children }) {
+  return (
+    <div className="flex">
+      <aside><ProfileSubNav /></aside>
+      <main>{children}</main>
+    </div>
+  );
+}
+```
+
+## AppShell / DashboardShell separation
+
+`AppShell` wraps ALL routes and provides:
+- `<Navbar>` + `<Footer>` for public pages
+- Bottom-player padding (`pb-36` / `pb-20`)
+- Background gradient and `min-h`
+
+`DashboardShell` wraps dashboard routes and provides:
+- Sticky sidebar (`sticky top-0 h-screen`) + header
+- Its own `min-h-screen` on the outer flex container
+
+### Rules
+
+- **AppShell must NOT apply `min-h`, `pb-*`, or background gradient to dashboard routes.** Dashboard pages have their own layout; extra height / padding from AppShell breaks `sticky` positioning on the sidebar.
+- **DashboardShell's inner content column must NOT have `min-h-screen`** — only the outer flex container needs it. Redundant `min-h-screen` on nested elements inflates total height and causes the sidebar to scroll before sticking.
+- **Never stack multiple `min-h-screen` declarations** on nested elements. Only the outermost dashboard container should set `min-h-screen`.
+- When checking `isDashboardRoute` in AppShell, guard all layout-specific classes (min-height, padding, gradient) behind `!isDashboardRoute`.
+
+### Sticky sidebar checklist
+
+For `sticky top-0` to work correctly:
+1. The sticky element must have a fixed height (`h-screen`).
+2. Its scroll parent (body) must be the only scrolling context — no intermediate wrappers adding extra height.
+3. No ancestor wrapper should apply padding or min-height that makes the page taller than the content.
+4. The sidebar's inner content should use `overflow-y-auto` if nav items can exceed viewport height.

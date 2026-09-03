@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { tierBadgeColor } from "@/lib/license-ui";
 import type { ILicense } from "@/types";
 
 interface Props {
@@ -52,14 +53,6 @@ function fromLicense(lic: ILicense): LicenseFormState {
   };
 }
 
-function tierBadgeColor(type: string) {
-  switch (type) {
-    case "basic": return "bg-primary/20 text-primary";
-    case "premium": return "bg-amber-500/20 text-amber-400";
-    case "unlimited": return "bg-violet-500/20 text-violet-400";
-    default: return "";
-  }
-}
 
 export default function LicenseEditor({ licenses, beatId }: Props) {
   const router = useRouter();

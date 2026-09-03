@@ -1,10 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
-import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
-import Providers from "@/components/Providers";
-import AppShell from "@/components/AppShell";
-import ErrorReporter from "@/components/ErrorReporter";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
@@ -44,62 +40,21 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large" },
   },
-  alternates: {
-    canonical: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: "Trishul Beats",
-    url: appUrl,
-    description: "Discover and license high-quality beats from talented producers.",
-    potentialAction: {
-      "@type": "SearchAction",
-      target: `${appUrl}/beats?search={search_term_string}`,
-      "query-input": "required name=search_term_string",
-    },
-  };
-
   return (
     <html
       lang="en"
       suppressHydrationWarning
       className={cn("font-sans antialiased", geist.variable)}
     >
-      <head>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-        {process.env.NEXT_PUBLIC_GA_ID && (
-          <>
-            <script
-              async
-              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`}
-            />
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${process.env.NEXT_PUBLIC_GA_ID}');`,
-              }}
-            />
-          </>
-        )}
-      </head>
       <body className="min-h-screen bg-background text-foreground">
-        <Providers>
-          <AppShell>{children}</AppShell>
-          <Toaster richColors position="top-right" />
-          <ErrorReporter />
-        </Providers>
+        {children}
       </body>
     </html>
   );

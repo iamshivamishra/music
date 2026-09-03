@@ -1,5 +1,6 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import { timingSafeEqualString } from "@/lib/crypto/timing-safe-equal";
 
 let _razorpay: Razorpay | null = null;
 
@@ -25,7 +26,17 @@ export function verifySignature(
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
     .update(body)
     .digest("hex");
-  return expectedSignature === signature;
+  return timingSafeEqualString(expectedSignature, signature);
+}
+
+export function verifyWebhookSignature(rawBody: string, signature: string): boolean {
+  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+  if (!secret) return false;
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(rawBody)
+    .digest("hex");
+  return timingSafeEqualString(expected, signature);
 }
 
 interface RazorpayPaymentLike {
@@ -39,4 +50,14 @@ interface RazorpayPaymentLike {
 export async function fetchPaymentById(paymentId: string): Promise<RazorpayPaymentLike> {
   const payment = await razorpay.payments.fetch(paymentId);
   return payment as RazorpayPaymentLike;
+}
+
+export async function refundPayment(
+  paymentId: string,
+  amountRupees: number
+): Promise<{ id: string; status?: string }> {
+  const refund = await razorpay.payments.refund(paymentId, {
+    amount: amountRupees * 100,
+  });
+  return refund as { id: string; status?: string };
 }

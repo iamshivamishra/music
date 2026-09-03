@@ -1,4 +1,3 @@
-// components/BottomPlayer.tsx
 "use client";
 
 import Image from "next/image";
@@ -11,15 +10,20 @@ import {
   SkipForward,
   Share2,
   Download,
-  Heart,
   Repeat,
+  Repeat1,
+  Shuffle,
   Volume2,
   VolumeX,
   ShoppingCart,
   Music,
+  X,
 } from "lucide-react";
 import { useAudioPlayer } from "@/components/AudioPlayerContext";
+import ShareDialog from "@/components/ShareDialog";
 import { formatDuration } from "@/lib/format";
+
+const SEEK_STEP_SECONDS = 5;
 
 export default function BottomPlayer() {
   const {
@@ -29,99 +33,229 @@ export default function BottomPlayer() {
     duration,
     progress,
     volume,
+    playlist,
+    currentIndex,
+    repeat,
+    shuffle,
+    canPrev,
+    canNext,
     togglePlay,
     seek,
     setVolume,
+    closePlayer,
+    playNext,
+    playPrev,
+    cycleRepeat,
+    toggleShuffle,
   } = useAudioPlayer();
 
   const [isMuted, setIsMuted] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isRepeat, setIsRepeat] = useState(false);
 
   if (!currentBeat) return null;
+
+  const hasQueue = playlist.length > 1;
+  const queueLabel =
+    hasQueue && currentIndex >= 0
+      ? `${currentIndex + 1} of ${playlist.length}`
+      : null;
 
   const handleSeekClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const percent = ((e.clientX - rect.left) / rect.width) * 100;
-    seek(percent);
+    seek(Math.max(0, Math.min(100, percent)));
   };
 
-  const handleShare = async () => {
-    const url = `${window.location.origin}/beats/${currentBeat.id}`;
-    if (navigator.share) {
-      navigator.share({ title: currentBeat.title, url }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(url);
+  const handleSeekKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!duration) return;
+    const stepPercent = (SEEK_STEP_SECONDS / duration) * 100;
+    if (e.key === "ArrowRight") {
+      e.preventDefault();
+      seek(Math.min(100, progress + stepPercent));
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      seek(Math.max(0, progress - stepPercent));
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      seek(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      seek(100);
     }
   };
 
+  const shareUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/beats/${currentBeat.id}`
+      : `/beats/${currentBeat.id}`;
+
+  const repeatIcon =
+    repeat === "one" ? (
+      <Repeat1 className="h-4 w-4" />
+    ) : (
+      <Repeat className="h-4 w-4" />
+    );
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[#0d0d0d]">
-      {/* Seek bar */}
-      <div className="h-1 w-full cursor-pointer bg-white/10" onClick={handleSeekClick}>
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-player-border bg-player-bg">
+      {/* Seek bar with a11y */}
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label="Seek"
+        aria-valuenow={Math.round(currentTime)}
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        className="group/seek h-1 w-full cursor-pointer bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        onClick={handleSeekClick}
+        onKeyDown={handleSeekKeyDown}
+      >
         <div
-          className="h-full bg-gradient-to-r from-primary to-purple-500 transition-all"
+          className="h-full bg-gradient-to-r from-primary to-progress-end transition-all"
           style={{ width: `${progress}%` }}
         />
       </div>
 
-      <div className="flex items-center gap-2 px-2 py-2 sm:gap-4 sm:px-4 sm:py-3">
-        {/* Cover + Info */}
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:w-56 sm:flex-none sm:gap-3">
+      {/* Mobile layout: compact single row */}
+      <div className="flex items-center gap-2 px-2 py-2 sm:hidden">
+        <Link
+          href={`/beats/${currentBeat.id}`}
+          aria-label={`Open ${currentBeat.title}`}
+          className="flex min-w-0 flex-1 items-center gap-2"
+        >
           {currentBeat.coverUrl ? (
             <Image
               src={currentBeat.coverUrl}
               alt={currentBeat.title}
-              width={40}
-              height={40}
-              className="h-9 w-9 shrink-0 rounded-md object-cover sm:h-12 sm:w-12"
+              width={32}
+              height={32}
+              className="h-8 w-8 shrink-0 rounded object-cover"
             />
           ) : (
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white/5 sm:h-12 sm:w-12">
-              <Music className="h-4 w-4 text-white/30 sm:h-5 sm:w-5" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-foreground/5">
+              <Music className="h-3.5 w-3.5 text-foreground/30" />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium text-foreground">
+              {currentBeat.title}
+            </p>
+            <p className="text-[10px] text-player-muted">
+              {formatDuration(currentTime)} / {formatDuration(duration)}
+            </p>
+          </div>
+        </Link>
+        {hasQueue && (
+          <button
+            onClick={playPrev}
+            disabled={!canPrev}
+            aria-label="Previous"
+            className={canPrev ? "text-player-muted" : "text-player-disabled"}
+          >
+            <SkipBack className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button
+          onClick={togglePlay}
+          aria-label={isPlaying ? "Pause" : "Play"}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-navbar-foreground text-navbar-bg"
+        >
+          {isPlaying ? (
+            <Pause className="h-3.5 w-3.5 fill-current" />
+          ) : (
+            <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
+          )}
+        </button>
+        {hasQueue && (
+          <button
+            onClick={playNext}
+            disabled={!canNext}
+            aria-label="Next"
+            className={canNext ? "text-player-muted" : "text-player-disabled"}
+          >
+            <SkipForward className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button
+          onClick={closePlayer}
+          aria-label="Close player"
+          className="text-player-muted hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Desktop / tablet layout */}
+      <div className="hidden items-center gap-4 px-4 py-3 sm:flex">
+        {/* Cover + Info */}
+        <Link
+          href={`/beats/${currentBeat.id}`}
+          aria-label={`Open ${currentBeat.title}`}
+          className="flex w-56 shrink-0 items-center gap-3 hover:opacity-90"
+        >
+          {currentBeat.coverUrl ? (
+            <Image
+              src={currentBeat.coverUrl}
+              alt={currentBeat.title}
+              width={48}
+              height={48}
+              className="h-12 w-12 shrink-0 rounded-md object-cover"
+            />
+          ) : (
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-foreground/5">
+              <Music className="h-5 w-5 text-foreground/30" />
             </div>
           )}
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-white sm:text-sm">
+            <p className="truncate text-sm font-medium text-foreground">
               {currentBeat.title}
             </p>
-            <p className="truncate text-[11px] text-zinc-400 sm:text-xs">
+            <p className="truncate text-xs text-player-muted">
               {currentBeat.producerName}
             </p>
           </div>
-        </div>
+        </Link>
 
-        {/* Share / Download / Like - tablet+ only */}
-        <div className="hidden shrink-0 items-center gap-3 text-zinc-400 md:flex">
-          <button onClick={handleShare} aria-label="Share" className="hover:text-white">
-            <Share2 className="h-4 w-4" />
-          </button>
-          <Link href={`/beats/${currentBeat.id}`} aria-label="Download" className="hover:text-white">
+        {/* Share / Download — tablet+ */}
+        <div className="hidden shrink-0 items-center gap-3 text-player-muted md:flex">
+          <ShareDialog
+            url={shareUrl}
+            title={currentBeat.title}
+            producerName={currentBeat.producerName}
+            beatId={currentBeat.id}
+            trigger={
+              <button aria-label="Share" className="text-player-muted hover:text-foreground">
+                <Share2 className="h-4 w-4" />
+              </button>
+            }
+          />
+          <Link
+            href={`/beats/${currentBeat.id}`}
+            aria-label="Download"
+            className="hover:text-foreground"
+          >
             <Download className="h-4 w-4" />
           </Link>
-          <button
-            onClick={() => setIsLiked(!isLiked)}
-            aria-label={isLiked ? "Unlike" : "Like"}
-            className={isLiked ? "text-primary" : "hover:text-white"}
-          >
-            <Heart className={`h-4 w-4 ${isLiked ? "fill-current" : ""}`} />
-          </button>
         </div>
 
-        {/* Center controls - flex-1 taaki yeh beech ki jagah le aur play truly centered rahe */}
+        {/* Center controls */}
         <div className="flex flex-1 flex-col items-center gap-1">
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-4">
             <button
+              onClick={playPrev}
               aria-label="Previous"
-              className="hidden text-zinc-500 cursor-not-allowed sm:block"
-              disabled
+              disabled={!canPrev}
+              className={
+                canPrev
+                  ? "text-player-muted hover:text-foreground"
+                  : "cursor-not-allowed text-player-disabled"
+              }
             >
               <SkipBack className="h-4 w-4" />
             </button>
             <button
               onClick={togglePlay}
               aria-label={isPlaying ? "Pause" : "Play"}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-black transition-transform hover:scale-105 active:scale-95 sm:h-10 sm:w-10"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-navbar-foreground text-navbar-bg transition-transform hover:scale-105 active:scale-95"
             >
               {isPlaying ? (
                 <Pause className="h-4 w-4 fill-current" />
@@ -130,28 +264,55 @@ export default function BottomPlayer() {
               )}
             </button>
             <button
+              onClick={playNext}
               aria-label="Next"
-              className="hidden text-zinc-500 cursor-not-allowed sm:block"
-              disabled
+              disabled={!canNext}
+              className={
+                canNext
+                  ? "text-player-muted hover:text-foreground"
+                  : "cursor-not-allowed text-player-disabled"
+              }
             >
               <SkipForward className="h-4 w-4" />
             </button>
           </div>
-          <div className="hidden items-center gap-2 text-xs text-zinc-400 sm:flex">
-            <span className="w-10 text-right">{formatDuration(currentTime)}</span>
+          <div className="flex items-center gap-2 text-xs text-player-muted">
+            <span className="w-10 text-right">
+              {formatDuration(currentTime)}
+            </span>
             <span>/</span>
             <span className="w-10">{formatDuration(duration)}</span>
           </div>
         </div>
 
-        {/* Repeat / Volume - desktop only */}
+        {/* Shuffle / Repeat / Volume / Close — desktop */}
         <div className="hidden shrink-0 items-center gap-3 lg:flex">
+          {queueLabel && (
+            <span className="text-xs tabular-nums text-player-muted">
+              {queueLabel}
+            </span>
+          )}
           <button
-            onClick={() => setIsRepeat(!isRepeat)}
-            aria-label="Repeat"
-            className={isRepeat ? "text-primary" : "text-zinc-400 hover:text-white"}
+            onClick={toggleShuffle}
+            aria-label={shuffle ? "Disable shuffle" : "Enable shuffle"}
+            className={
+              shuffle
+                ? "text-primary"
+                : "text-player-muted hover:text-foreground"
+            }
           >
-            <Repeat className="h-4 w-4" />
+            <Shuffle className="h-4 w-4" />
+          </button>
+          <button
+            onClick={cycleRepeat}
+            aria-label={`Repeat: ${repeat}`}
+            className={
+              repeat !== "off"
+                ? "text-primary"
+                : "text-player-muted hover:text-foreground"
+            }
+          >
+            {repeatIcon}
           </button>
           <button
             onClick={() => {
@@ -159,7 +320,7 @@ export default function BottomPlayer() {
               setIsMuted(!isMuted);
             }}
             aria-label={isMuted ? "Unmute" : "Mute"}
-            className="text-zinc-400 hover:text-white"
+            className="text-player-muted hover:text-foreground"
           >
             {isMuted || volume === 0 ? (
               <VolumeX className="h-4 w-4" />
@@ -178,18 +339,26 @@ export default function BottomPlayer() {
               setVolume(v);
               setIsMuted(v === 0);
             }}
+            aria-label="Volume"
             className="w-24 accent-primary"
           />
+          <button
+            onClick={closePlayer}
+            aria-label="Close player"
+            className="text-player-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Buy button */}
         <Link
           href={`/beats/${currentBeat.id}`}
           aria-label="Buy"
-          className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 sm:px-4"
+          className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110"
         >
           <ShoppingCart className="h-4 w-4" />
-          <span className="hidden sm:inline">Buy</span>
+          <span>Buy</span>
         </Link>
       </div>
     </div>

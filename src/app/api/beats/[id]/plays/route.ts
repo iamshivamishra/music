@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beatService } from "@/lib/services/beat.service";
+import { attributionFromCookies } from "@/lib/attribution";
 import { formatErrorResponse } from "@/lib/errors";
 import { getClientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
@@ -13,7 +14,7 @@ export async function POST(
     if (!rl.success) return rateLimitResponse(rl.resetAt);
 
     const { id } = await params;
-    await beatService.incrementPlays(id);
+    await beatService.incrementPlays(id, attributionFromCookies(request.cookies).source);
     return Response.json({ success: true });
   } catch (error) {
     return formatErrorResponse(error);

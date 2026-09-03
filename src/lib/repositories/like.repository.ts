@@ -1,5 +1,5 @@
 import { connectDB } from "@/lib/db";
-import { Like } from "@/lib/models/like.model";
+import Like from "@/lib/models/Like";
 import type { ClientSession } from "mongoose";
 
 interface RepoOptions {

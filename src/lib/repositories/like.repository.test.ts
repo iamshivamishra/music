@@ -4,16 +4,17 @@ vi.mock("@/lib/db", () => ({
   connectDB: vi.fn(),
 }));
 
-vi.mock("@/lib/models/like.model", () => ({
-  Like: {
+vi.mock("@/lib/models/Like", () => {
+  const Like = {
     findOne: vi.fn(),
     create: vi.fn(),
     findOneAndDelete: vi.fn(),
     countDocuments: vi.fn(),
-  },
-}));
+  };
+  return { default: Like };
+});
 
-import { Like } from "@/lib/models/like.model";
+import Like from "@/lib/models/Like";
 import { likeRepository } from "./like.repository";
 
 describe("likeRepository", () => {

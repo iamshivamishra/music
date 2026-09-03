@@ -4,13 +4,14 @@ import { downloadService, type DownloadFileType } from "@/lib/services/download.
 import { storageService } from "@/lib/services/storage.service";
 import { formatErrorResponse, UnauthorizedError } from "@/lib/errors";
 import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+import { objectIdSchema } from "@/lib/validators/params";
 
 const VALID_TYPES: DownloadFileType[] = ["preview", "master", "stems"];
 
 /**
  * GET /api/beats/[id]/download?type=master
  *
- * Returns a 302 redirect to a signed, time-limited R2 download URL.
+ * Returns a 302 redirect to a signed, time-limited S3 download URL.
  * Validates ownership and license entitlements before generating the URL.
  */
 export async function GET(
@@ -26,6 +27,7 @@ export async function GET(
     if (!session?.user) throw new UnauthorizedError();
 
     const { id } = await params;
+    objectIdSchema.parse(id);
     const typeParam = request.nextUrl.searchParams.get("type") || "master";
     const fileType = VALID_TYPES.includes(typeParam as DownloadFileType)
       ? (typeParam as DownloadFileType)

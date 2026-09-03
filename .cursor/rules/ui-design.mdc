@@ -1,0 +1,199 @@
+---
+description: Design system — tokens, theme configuration, visual hierarchy, responsive, dark mode, empty states, animations
+globs: src/components/**/*.tsx,src/features/**/*.tsx,src/app/**/*.tsx,src/lib/design-system/**/*.ts,src/app/globals.css,scripts/generate-theme.ts
+alwaysApply: false
+---
+
+# UI Design System
+
+## Design token architecture
+
+All design tokens flow from a single TypeScript config:
+
+```
+src/lib/design-system/tokens.ts  (edit here)
+        ↓  npm run generate:theme
+src/lib/design-system/generated-theme.css  (auto-generated — never edit)
+        ↓  @import in globals.css
+src/app/globals.css @theme inline  (registers tokens for Tailwind)
+        ↓
+Tailwind classes in components  (bg-primary, text-player-muted, etc.)
+```
+
+### Changing the theme
+
+1. Edit `src/lib/design-system/tokens.ts`
+2. Run `npm run generate:theme`
+3. Done — every component picks up the new values
+
+### Adding a new color token
+
+1. Add the key to **both** `colors.light` and `colors.dark` in `tokens.ts` (the generator validates parity and will fail if one is missing)
+2. Run `npm run generate:theme` to emit the CSS variable
+3. Register the Tailwind alias in `globals.css` inside `@theme inline`: `--color-my-token: var(--my-token);`
+4. Use `bg-my-token`, `text-my-token`, etc. in components
+
+### Rules
+
+- **Never** hardcode `oklch()`, `#hex`, `rgb()`, `hsl()`, `bg-zinc-*`, or `text-zinc-*` in component files.
+- **Never** edit `generated-theme.css` by hand — it is overwritten by the generator.
+- For JS-side color values (e.g. Razorpay `theme.color`), import from `@/lib/design-system`:
+
+```typescript
+import { tokens } from "@/lib/design-system";
+// tokens.brand.primaryHex → "#1DB954"
+```
+
+### Theme identity
+
+The app uses a **Spotify-like** dark music UI with **green** accents:
+
+- **Base**: True-black / `#121212` surfaces (no purple tint)
+- **Primary accent**: Spotify green (`#1DB954` / hue 145) for CTAs, play buttons, progress, and active states
+- **Primary foreground**: Near-black text/icons on green (Spotify play-button pattern)
+- **Surfaces**: Solid elevated cards (`bg-card`) over a darker page background
+- **Borders**: Subtle white opacity on dark (`oklch(1 0 0 / 10%)`)
+- **Radius**: `0.5rem` base — 8px cards; play controls stay `rounded-full`
+- **Light mode**: White content area with black inverted chrome (navbar, sidebar, player, footer)
+
+When adding new components, keep the music-player feel:
+- Prefer solid `bg-card` over heavy glassmorphism
+- Use `border-border/50` for quiet dividers
+- Green is for interactive/playing states only — keep the rest neutral gray/black
+
+### Available semantic tokens
+
+| Token group | Tailwind classes | Purpose |
+|-------------|-----------------|---------|
+| Core | `bg-background`, `text-foreground`, `bg-primary`, `text-muted-foreground` | Standard shadcn/ui palette |
+| Player | `bg-player-bg`, `border-player-border`, `text-player-muted`, `text-player-disabled` | Bottom player chrome |
+| Admin | `bg-admin-bg`, `text-admin-muted` | Admin table headers and secondary text |
+| Status | `bg-success-bg`, `text-success-text` | Verified/published badges |
+| Accents | `bg-gradient-accent`, `to-progress-end`, `bg-play-button` | Gradients, play button, progress bar |
+| Sidebar | `bg-sidebar`, `text-sidebar-foreground`, etc. | Dashboard sidebar |
+
+## Other design tokens
+
+- **Spacing** — Tailwind scale. Maintain consistent spacing within sections.
+- **Typography** — Geist font via `next/font`. Use Tailwind text scale consistently.
+- **Radius** — `--radius` is set in `tokens.ts`. Use `rounded-md`, `rounded-lg`, `rounded-xl` consistently per component type.
+- **Icons** — `lucide-react` only. Keep icon sizing consistent: `h-4 w-4`, `h-5 w-5`.
+
+## Page headings
+
+Use the `page-title` utility class (`text-2xl font-semibold sm:text-3xl`) for all top-level page headings. Do not hand-roll heading styles.
+
+```typescript
+// ✅ GOOD — uses page-title
+<h1 className="page-title">My Beats</h1>
+
+// ❌ BAD — inconsistent hand-rolled styles
+<h1 className="text-xl font-bold">My Packs</h1>
+<h1 className="text-lg font-semibold">My Library</h1>
+<h1 className="text-3xl font-semibold tracking-tight">Studio</h1>
+```
+
+For sub-page headings (edit forms, narrow pages), use `text-2xl font-semibold`.
+
+## Button sizing convention
+
+Use consistent sizes by context. Never mix sizes within the same button group.
+
+| Context | Size | Tailwind height |
+|---------|------|-----------------|
+| Page header actions | `sm` | `h-8` |
+| Inline card actions | `sm` | `h-8` |
+| Form submit buttons | `default` (omit prop) | `h-9` |
+| Modal / dialog actions | `default` | `h-9` |
+| Empty state primary CTA | `lg` | `h-10` |
+| Icon-only buttons | `icon` | `h-9 w-9` |
+
+```typescript
+// ✅ GOOD — all header buttons use size="sm"
+<div className="flex gap-2">
+  <Button asChild variant="outline" size="sm"><Link href="/">Home</Link></Button>
+  <Button asChild variant="outline" size="sm"><Link href="/studio/beats">My Beats</Link></Button>
+  <Button asChild size="sm"><Link href="/upload">Upload</Link></Button>
+</div>
+
+// ❌ BAD — mixed sizes in same group
+<div className="flex gap-2">
+  <Button size="sm">Home</Button>
+  <Button>Upload</Button>  {/* default size — mismatched */}
+</div>
+```
+
+## Cursor pointer
+
+A global CSS rule in `globals.css` applies `cursor: pointer` to all interactive elements (`button`, `[role="button"]`, `select`, `summary`, checkbox, radio, submit, reset). Do NOT add `cursor-pointer` to individual components — the global rule handles it.
+
+For non-standard clickable elements (e.g. clickable `<div>`, `<tr>`, cards), add `cursor-pointer` in the component's `className`.
+
+```typescript
+// ✅ GOOD — buttons get pointer automatically via global CSS
+<Button size="sm">Upload</Button>
+
+// ✅ GOOD — clickable card needs explicit cursor-pointer
+<div onClick={handleClick} className="cursor-pointer rounded-xl border p-4">
+
+// ❌ BAD — redundant cursor-pointer on a button
+<Button className="cursor-pointer" size="sm">Upload</Button>
+```
+
+## Visual hierarchy
+
+Every page must have clear:
+- **Primary focus** — one main heading, one primary CTA
+- **Content density** — appropriate whitespace, not cramped or too sparse
+- **Scanability** — users should understand the page in 3 seconds
+
+## Responsive design (mobile-first)
+
+Review every screen for: **mobile → tablet → laptop → desktop → ultra-wide**
+
+```typescript
+// ✅ Mobile-first breakpoints
+className="text-sm sm:text-base lg:text-lg"
+className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+className="px-4 sm:px-6 lg:px-8"
+```
+
+- No horizontal scrolling on any breakpoint.
+- Touch targets minimum 44×44px on mobile.
+- Test sticky elements don't overlap on small screens.
+
+## Dark mode
+
+- Every component must support light and dark mode.
+- Use Tailwind `dark:` variant or CSS custom properties — never hardcoded colors.
+- When adding semantic tokens, provide appropriate values in **both** `light` and `dark` in `tokens.ts`.
+- Test contrast ratios in both modes.
+
+## Empty states
+
+Never leave blank screens. Every data-driven view needs:
+- **Empty** — helpful message + CTA to add content
+- **Error** — user-friendly message + retry action
+- **Loading** — skeleton (preferred) or spinner
+- **No results** — search/filter feedback + suggestion
+- **Offline** — graceful degradation message
+
+## Skeleton loading
+
+Prefer skeletons over spinners. Provide `loading.tsx` for route groups.
+
+## Animations
+
+- Subtle transitions only (`transition-colors`, `transition-opacity`).
+- No decorative animations.
+- Respect `prefers-reduced-motion` — use Tailwind `motion-safe:` / `motion-reduce:`.
+
+## Component naming
+
+| Type | Pattern | Location |
+|------|---------|----------|
+| Shared | `PascalCase.tsx` | `src/components/` |
+| Client wrappers | `*Client.tsx` | Colocated with page |
+| Forms | `*Form.tsx` | Colocated or `src/features/` |
+| UI primitives | `kebab-case.tsx` | `src/components/ui/` |
+| Layout | `PascalCase.tsx` | `src/components/layout/` |

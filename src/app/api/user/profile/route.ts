@@ -1,15 +1,20 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
-import { userRepository } from "@/lib/repositories/user.repository";
+import { authService } from "@/lib/services/auth.service";
 import { updateProfileSchema } from "@/lib/validators/auth";
-import { formatErrorResponse, UnauthorizedError, ConflictError } from "@/lib/errors";
+import { formatErrorResponse, UnauthorizedError } from "@/lib/errors";
+import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await rateLimit(ip, { limit: 10, windowSec: 60, prefix: "user-profile" });
+    if (!rl.success) return rateLimitResponse(rl.resetAt);
+
     const session = await auth();
     if (!session?.user) throw new UnauthorizedError();
 
-    const user = await userRepository.findById(session.user.id);
+    const user = await authService.getProfile(session.user.id);
     return Response.json({ user });
   } catch (error) {
     return formatErrorResponse(error);
@@ -18,18 +23,17 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await rateLimit(ip, { limit: 10, windowSec: 60, prefix: "user-profile" });
+    if (!rl.success) return rateLimitResponse(rl.resetAt);
+
     const session = await auth();
     if (!session?.user) throw new UnauthorizedError();
 
     const body = await request.json();
     const input = updateProfileSchema.parse(body);
 
-    if (input.username) {
-      const taken = await userRepository.usernameExists(input.username, session.user.id);
-      if (taken) throw new ConflictError("This username is already taken");
-    }
-
-    const user = await userRepository.update(session.user.id, input);
+    const user = await authService.updateProfile(session.user.id, input);
     return Response.json({ user });
   } catch (error) {
     return formatErrorResponse(error);

@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { safeNextPath } from "@/lib/safe-next-path";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -29,15 +30,28 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-export default function SignupForm() {
+interface SignupFormProps {
+  defaultRole?: "buyer" | "producer";
+  inviteToken?: string;
+  defaultEmail?: string;
+  nextPath?: string;
+}
+
+export default function SignupForm({
+  defaultRole,
+  inviteToken,
+  defaultEmail,
+  nextPath,
+}: SignupFormProps) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(defaultEmail ?? "");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"buyer" | "producer">("buyer");
+  const [role, setRole] = useState<"buyer" | "producer">(defaultRole ?? "buyer");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const redirectTo = safeNextPath(nextPath) ?? "/onboarding";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +62,7 @@ export default function SignupForm() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role, ...(inviteToken ? { inviteToken } : {}) }),
       });
 
       const data = await res.json();
@@ -71,8 +85,11 @@ export default function SignupForm() {
 
       if (result?.error) {
         router.push("/login");
+      } else if (inviteToken) {
+        router.push(`/onboarding?role=producer&invite=${encodeURIComponent(inviteToken)}`);
+        router.refresh();
       } else {
-        router.push("/");
+        router.push(redirectTo);
         router.refresh();
       }
     } catch {
@@ -84,7 +101,14 @@ export default function SignupForm() {
 
   const handleGoogleSignIn = () => {
     setGoogleLoading(true);
-    signIn("google", { callbackUrl: "/onboarding" });
+    let callbackUrl =
+      safeNextPath(nextPath) ??
+      (role === "producer" ? "/onboarding?role=producer" : "/onboarding");
+    if (inviteToken) {
+      const params = new URLSearchParams({ role: "producer", invite: inviteToken });
+      callbackUrl = `/onboarding?${params.toString()}`;
+    }
+    signIn("google", { callbackUrl });
   };
 
   return (
@@ -174,7 +198,7 @@ export default function SignupForm() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="buyer">Buy beats</SelectItem>
-                {/* <SelectItem value="producer">Sell beats (Producer)</SelectItem> */}
+                <SelectItem value="producer">Sell beats (Producer)</SelectItem>
               </SelectContent>
             </Select>
           </div>

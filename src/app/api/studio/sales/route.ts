@@ -1,15 +1,18 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { studioService } from "@/lib/services/studio.service";
-import { formatErrorResponse, ForbiddenError, UnauthorizedError } from "@/lib/errors";
+import { formatErrorResponse } from "@/lib/errors";
+import { requireProducer } from "@/lib/auth/role-checks";
+import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await rateLimit(ip, { limit: 30, windowSec: 60, prefix: "studio-sales" });
+    if (!rl.success) return rateLimitResponse(rl.resetAt);
+
     const session = await auth();
-    if (!session?.user) throw new UnauthorizedError();
-    if (session.user.role !== "producer" && session.user.role !== "admin") {
-      throw new ForbiddenError("Only producers can access sales data");
-    }
+    requireProducer(session);
 
     const page = parseInt(request.nextUrl.searchParams.get("page") || "1", 10);
     const limit = parseInt(request.nextUrl.searchParams.get("limit") || "20", 10);

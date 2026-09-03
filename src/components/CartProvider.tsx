@@ -12,7 +12,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api/http";
 import { cartApi } from "@/lib/api/cart";
-import type { CartItemPopulated } from "@/types";
+import type { CartItemPopulated, PackCartItemPopulated, LicenseType } from "@/types";
 
 const STORAGE_KEY = "trishul_cart";
 
@@ -23,11 +23,14 @@ interface LocalCartItem {
 
 interface CartContextType {
   items: CartItemPopulated[];
+  packItems: PackCartItemPopulated[];
   count: number;
   total: number;
   loading: boolean;
-  addItem: (beatId: string, licenseId: string) => Promise<void>;
+  addItem: (beatId: string, licenseId: string, accessToken?: string) => Promise<void>;
+  addPackItem: (packId: string, packTier: LicenseType) => Promise<void>;
   removeItem: (beatId: string) => Promise<void>;
+  removePackItem: (packId: string) => Promise<void>;
   updateLicense: (beatId: string, licenseId: string) => Promise<void>;
   clearCart: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -68,16 +71,20 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   const isLoading = status === "loading";
 
   const [items, setItems] = useState<CartItemPopulated[]>([]);
+  const [packItems, setPackItems] = useState<PackCartItemPopulated[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const total = items.reduce((sum, i) => sum + i.price, 0);
-  const count = items.length;
+  const total =
+    items.reduce((sum, i) => sum + i.price, 0) +
+    packItems.reduce((sum, i) => sum + i.price, 0);
+  const count = items.length + packItems.length;
 
   // Fetch server cart for logged-in users
   const fetchServerCart = useCallback(async () => {
     try {
       const data = await cartApi.get();
       setItems(data.items);
+      setPackItems(data.packItems ?? []);
     } catch {
       /* ignore */
     }
@@ -134,7 +141,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
   }, [isLoggedIn, isLoading, fetchServerCart, loadGuestCart, syncGuestCartToServer]);
 
   const addItem = useCallback(
-    async (beatId: string, licenseId: string) => {
+    async (beatId: string, licenseId: string, accessToken?: string) => {
       if (items.some((i) => i.beatId === beatId)) {
         toast.info("This beat is already in your cart");
         return;
@@ -142,7 +149,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
 
       if (isLoggedIn) {
         try {
-          await cartApi.add(beatId, licenseId);
+          await cartApi.add(beatId, licenseId, accessToken);
           await fetchServerCart();
           toast.success("Added to cart");
         } catch (error) {
@@ -179,6 +186,27 @@ export default function CartProvider({ children }: { children: ReactNode }) {
     [isLoggedIn, items, fetchServerCart]
   );
 
+  const addPackItem = useCallback(
+    async (packId: string, packTier: LicenseType) => {
+      if (isLoggedIn) {
+        try {
+          await cartApi.addPack(packId, packTier);
+          await fetchServerCart();
+          toast.success("Pack added to cart");
+        } catch (error) {
+          if (error instanceof ApiError) {
+            toast.error(error.message);
+          } else {
+            toast.error("Something went wrong");
+          }
+        }
+      } else {
+        toast.info("Sign in to add packs to your cart");
+      }
+    },
+    [isLoggedIn, fetchServerCart]
+  );
+
   const removeItem = useCallback(
     async (beatId: string) => {
       if (isLoggedIn) {
@@ -194,6 +222,21 @@ export default function CartProvider({ children }: { children: ReactNode }) {
         setLocalCart(local);
         setItems((prev) => prev.filter((i) => i.beatId !== beatId));
         toast.success("Removed from cart");
+      }
+    },
+    [isLoggedIn, fetchServerCart]
+  );
+
+  const removePackItem = useCallback(
+    async (packId: string) => {
+      if (isLoggedIn) {
+        try {
+          await cartApi.removePack(packId);
+          await fetchServerCart();
+          toast.success("Pack removed from cart");
+        } catch {
+          toast.error("Something went wrong");
+        }
       }
     },
     [isLoggedIn, fetchServerCart]
@@ -232,6 +275,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
       try {
         await cartApi.clear();
         setItems([]);
+        setPackItems([]);
         toast.success("Cart cleared");
       } catch {
         toast.error("Something went wrong");
@@ -239,6 +283,7 @@ export default function CartProvider({ children }: { children: ReactNode }) {
     } else {
       clearLocalCart();
       setItems([]);
+      setPackItems([]);
       toast.success("Cart cleared");
     }
   }, [isLoggedIn]);
@@ -258,11 +303,14 @@ export default function CartProvider({ children }: { children: ReactNode }) {
     <CartContext.Provider
       value={{
         items,
+        packItems,
         count,
         total,
         loading,
         addItem,
+        addPackItem,
         removeItem,
+        removePackItem,
         updateLicense,
         clearCart,
         refresh,

@@ -27,6 +27,8 @@ export default function Footer() {
             <h4 className="mb-3 text-sm font-semibold">Browse</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="/beats" className="focus-ring rounded-sm hover:text-foreground transition-colors">All Beats</Link></li>
+              <li><Link href="/beat-packs" className="focus-ring rounded-sm hover:text-foreground transition-colors">Beat Packs</Link></li>
+              <li><Link href="/charts" className="focus-ring rounded-sm hover:text-foreground transition-colors">India Top 10</Link></li>
               <li><Link href="/beats?genre=Hip+Hop" className="focus-ring rounded-sm hover:text-foreground transition-colors">Hip Hop</Link></li>
               <li><Link href="/beats?genre=Trap" className="focus-ring rounded-sm hover:text-foreground transition-colors">Trap</Link></li>
               <li><Link href="/beats?genre=R%26B" className="focus-ring rounded-sm hover:text-foreground transition-colors">R&B</Link></li>
@@ -37,7 +39,9 @@ export default function Footer() {
             <h4 className="mb-3 text-sm font-semibold">Company</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="/about" className="focus-ring rounded-sm hover:text-foreground transition-colors">About</Link></li>
+              <li><Link href="/sell" className="focus-ring rounded-sm hover:text-foreground transition-colors">Sell Your Beats</Link></li>
               <li><Link href="/contact" className="focus-ring rounded-sm hover:text-foreground transition-colors">Contact</Link></li>
+              <li><Link href="/privacy" className="focus-ring rounded-sm hover:text-foreground transition-colors">Privacy</Link></li>
             </ul>
           </div>
 

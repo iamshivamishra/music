@@ -1,0 +1,62 @@
+---
+description: Clean Architecture — layered boundaries, DDD principles, feature-first organization
+alwaysApply: true
+---
+
+# Architecture
+
+Strict layered architecture with clear dependency boundaries.
+
+```
+Page / API route  →  Service  →  Repository  →  Mongoose Model
+                         ↓
+                    Serializer (DTO shaping)
+```
+
+## Layer rules
+
+- **Pages & API routes** — orchestration only. No business logic, no direct Mongoose calls.
+- **Services** (`src/lib/services/*.service.ts`) — business logic, authorization, transactions, domain rules.
+- **Repositories** (`src/lib/repositories/*.repository.ts`) — persistence only. No cross-domain business rules.
+- **Serializers** (`src/lib/serializers/`) — shape DTOs for the UI. Reuse across pages and APIs.
+- **Validators** (`src/lib/validators/`) — Zod schemas. Parse in API routes and services.
+
+## Export pattern
+
+Services and repositories export **plain objects**, not classes:
+
+```typescript
+// ✅ GOOD
+export const beatService = { async create(...) { ... } };
+
+// ❌ BAD — no classes
+export class BeatService { ... }
+```
+
+## Feature-first organization
+
+```
+src/features/beats/       — browse, beat cards, license selector
+src/features/payments/    — payment-related shared code
+src/features/studio/      — producer dashboard components
+src/features/profile/     — buyer profile / library UI
+src/features/cart/        — cart client UI
+src/components/ui/        — generic UI primitives (shadcn)
+src/components/layout/    — app shell components
+src/components/           — shared app-level components
+```
+
+Large services are split behind a facade (see `payment.service.ts`, `beat.service.ts`). Callers keep importing the facade; command/query/page modules hold the implementations.
+
+Client components take serializer DTOs (`PublicBeatForUi`, `LicenseDto`), not Mongoose-shaped `IBeat` / `ILicense`. Shared unions (`BeatStatus`, `LicenseType`, `AttributionSource`) may still come from `@/types`.
+
+## Dependency boundaries
+
+- Pages → services (never repositories or models directly)
+- Services → repositories (never models directly when a repository exists)
+- Repositories → models + `connectDB()`
+- Components and `src/features` → never import services, repositories, or models
+- Feature code stays within its feature boundary
+- Serializers may `import type` from repositories; they must not import models
+- Enforced by `no-restricted-imports` in `eslint.config.mjs`. Tests are exempt.
+- [`src/lib/auth.ts`](src/lib/auth.ts) is the only allowed non-service value import of a repository (NextAuth `authorize`).

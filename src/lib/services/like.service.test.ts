@@ -85,6 +85,7 @@ const sampleBeat = {
   salesCount: 0,
   likesCount: 2,
   isPublished: true,
+  saleMode: "individual" as const,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

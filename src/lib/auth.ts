@@ -3,6 +3,8 @@ import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import mongoClient from "@/lib/mongodb";
+// NextAuth authorize() is config, not a page. Persistence belongs on the adapter + repository.
+// eslint-disable-next-line no-restricted-imports -- NextAuth config is not a route handler
 import { userRepository } from "@/lib/repositories/user.repository";
 import bcrypt from "bcryptjs";
 import type { UserRole } from "@/types";
@@ -155,6 +157,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               await userRepository.update(existingUser._id.toString(), { image: user.image });
             }
           }
+
+          const { authService } = await import("@/lib/services/auth.service");
+          if (user.id) {
+            authService
+              .linkGuestPurchases(user.id, String(user.email))
+              .catch(() => {});
+          }
         } catch {
           return false;
         }
@@ -166,7 +175,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const isLoggedIn = !!session?.user;
 
       // Redirect logged-in users away from auth pages
-      const authRoutes = ["/login", "/signup"];
+      const authRoutes = ["/login", "/signup", "/forgot-password", "/reset-password"];
       if (authRoutes.some((r) => pathname.startsWith(r)) && isLoggedIn) {
         return Response.redirect(new URL("/dashboard", request.nextUrl));
       }

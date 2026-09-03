@@ -1,0 +1,77 @@
+---
+description: Error handling — typed errors, user-friendly messages, retry, fallback UI
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Error Handling
+
+## Typed error hierarchy
+
+```typescript
+// src/lib/errors.ts
+AppError
+├── ValidationError    // 400 — invalid input
+├── UnauthorizedError  // 401 — not authenticated
+├── ForbiddenError     // 403 — not authorized
+├── NotFoundError      // 404 — resource missing
+└── ConflictError      // 409 — duplicate/conflict
+```
+
+## Service layer
+
+```typescript
+// ✅ GOOD — typed errors
+if (!beat) throw new NotFoundError("Beat not found");
+if (beat.producerId !== userId) throw new ForbiddenError();
+
+// ❌ BAD — generic errors
+throw new Error("Something went wrong");
+```
+
+## API layer
+
+Always `formatErrorResponse(error)` in catch — consistent JSON shape.
+
+## Client layer
+
+- `ApiError` in `@/lib/api/http.ts` — parses `{ error }` from failed responses.
+- Display user-friendly messages — never show raw error objects or stack traces.
+- Provide retry actions for transient failures (network, timeout).
+
+## UI error boundaries
+
+- Route-level `error.tsx` for page crashes.
+- `global-error.tsx` for root layout errors.
+- Inline error states for form submissions and data fetching.
+
+## Defensive data rendering
+
+Never trust that database fields are populated — always guard nullable values in templates, even if the schema says `required`. Legacy data, partial updates, and race conditions can leave fields `undefined`.
+
+```typescript
+// ✅ GOOD — guard with nullish coalescing
+<p>₹{amount ?? 0}</p>
+<p>{title ?? "—"}</p>
+<p>{count != null ? `${count} items` : "—"}</p>
+<time>{date ? formatDate(date) : "—"}</time>
+
+// ❌ BAD — raw interpolation of potentially undefined values
+<p>₹{amount}</p>           // renders "₹undefined"
+<p>{title}</p>             // renders "undefined"
+<p>{count} items</p>       // renders "undefined items"
+```
+
+Rules:
+- Always use `?? fallback` or `!= null` checks before interpolating values in JSX.
+- Currency values: `₹${value?.toLocaleString("en-IN") ?? "0"}`.
+- Dates: check truthiness before calling `new Date(...)` or `toLocaleDateString()`.
+- Prefer `"—"` (em dash) as the fallback for missing display values, not empty strings.
+
+## Every feature must have
+
+- [ ] User-friendly error messages
+- [ ] Retry strategy for transient failures
+- [ ] Structured logging of errors
+- [ ] Fallback UI (not blank screen)
+- [ ] Defensive rendering of nullable data values

@@ -11,15 +11,18 @@ vi.mock("@/lib/repositories/order.repository", () => ({
     updateStatus: vi.fn(),
     findById: vi.fn(),
     findByBuyer: vi.fn(),
+    setDownloadToken: vi.fn(),
   },
 }));
 
 vi.mock("@/lib/repositories/purchase.repository", () => ({
   purchaseRepository: {
     hasPurchased: vi.fn(),
+    hasPackPurchase: vi.fn(),
     create: vi.fn(),
     findByBuyerAndBeat: vi.fn(),
     findByBuyerAndOrderId: vi.fn(),
+    findPackPurchase: vi.fn(),
     getPurchasedBeatIds: vi.fn(),
     findByBuyerId: vi.fn(),
     getEarningsByProducer: vi.fn(),
@@ -39,8 +42,16 @@ vi.mock("@/lib/repositories/beat.repository", () => ({
   },
 }));
 
+vi.mock("@/lib/repositories/pack.repository", () => ({
+  packRepository: {
+    findById: vi.fn(),
+    incrementSalesCount: vi.fn(),
+  },
+}));
+
 vi.mock("@/lib/repositories/user.repository", () => ({
   userRepository: {
+    findById: vi.fn(),
     incrementSalesCount: vi.fn(),
   },
 }));
@@ -54,6 +65,14 @@ vi.mock("@/lib/repositories/cart.repository", () => ({
 vi.mock("@/lib/services/cart.service", () => ({
   cartService: {
     getItems: vi.fn(),
+    getPackItems: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/services/coupon.service", () => ({
+  couponService: {
+    validateCoupon: vi.fn(),
+    recordUsage: vi.fn(),
   },
 }));
 
@@ -76,6 +95,7 @@ vi.mock("@/lib/logger", () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
@@ -83,13 +103,84 @@ vi.mock("@/lib/audit", () => ({
   audit: vi.fn(),
 }));
 
+vi.mock("@/lib/services/beat-event.service", () => ({
+  beatEventService: {
+    record: vi.fn(),
+    recordCheckoutStarts: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/services/pdf.service", () => ({
+  pdfService: {
+    persistLicenseIdentifiers: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
+vi.mock("@/lib/services/purchase-email.service", () => ({
+  purchaseEmailService: {
+    notifyOrderFulfilled: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 import { ConflictError, ValidationError } from "@/lib/errors";
 import { beatRepository } from "@/lib/repositories/beat.repository";
 import { licenseRepository } from "@/lib/repositories/license.repository";
 import { orderRepository } from "@/lib/repositories/order.repository";
 import { purchaseRepository } from "@/lib/repositories/purchase.repository";
+import { userRepository } from "@/lib/repositories/user.repository";
+import { cartRepository } from "@/lib/repositories/cart.repository";
 import { fetchPaymentById, razorpay, verifySignature } from "@/lib/razorpay";
+import { beatEventService } from "@/lib/services/beat-event.service";
 import { paymentService } from "./payment.service";
+
+function beatOrder(status: "pending" | "failed" | "paid") {
+  return {
+    _id: "order_wh",
+    buyerId: "buyer_1",
+    status,
+    totalAmount: 999,
+    razorpayOrderId: "rzp_wh",
+    items: [
+      {
+        beatId: "beat_1",
+        licenseId: "license_1",
+        licenseType: "basic",
+        price: 999,
+        beatTitle: "Track",
+      },
+    ],
+  };
+}
+
+function capturedPayment() {
+  return {
+    id: "pay_wh",
+    order_id: "rzp_wh",
+    status: "captured" as const,
+    amount: 99900,
+    currency: "INR",
+  };
+}
+
+async function mockSuccessfulBeatFulfill() {
+  vi.mocked(orderRepository.markPaidIfPending).mockResolvedValue(beatOrder("paid") as never);
+  vi.mocked(beatRepository.findById).mockResolvedValue({
+    _id: "beat_1",
+    isPublished: true,
+    status: "published",
+    producerId: "prod_1",
+  } as never);
+  vi.mocked(licenseRepository.findById).mockResolvedValue({
+    _id: "license_1",
+    isActive: true,
+    beatId: "beat_1",
+    includesWav: true,
+    includesStems: false,
+  } as never);
+  vi.mocked(purchaseRepository.create).mockResolvedValue({ _id: "p1" } as never);
+  vi.mocked(userRepository.incrementSalesCount).mockResolvedValue(undefined as never);
+  vi.mocked(cartRepository.clear).mockResolvedValue(undefined as never);
+}
 
 describe("paymentService", () => {
   beforeEach(() => {
@@ -117,6 +208,79 @@ describe("paymentService", () => {
     });
     expect(razorpay.orders.create).not.toHaveBeenCalled();
     expect(orderRepository.create).not.toHaveBeenCalled();
+  });
+
+  it("copies attribution onto a new order and records checkout_start", async () => {
+    vi.mocked(purchaseRepository.hasPurchased).mockResolvedValueOnce(false);
+    vi.mocked(orderRepository.findPendingByBuyerAndBeat).mockResolvedValueOnce(null);
+    vi.mocked(licenseRepository.findById).mockResolvedValueOnce({
+      _id: "license_1",
+      beatId: "beat_1",
+      isActive: true,
+      type: "basic",
+      price: 499,
+    } as never);
+    vi.mocked(beatRepository.findById).mockResolvedValueOnce({
+      _id: "beat_1",
+      title: "Fire",
+      isPublished: true,
+      status: "published",
+      producerId: "prod_1",
+    } as never);
+    vi.mocked(orderRepository.create).mockResolvedValueOnce({
+      _id: "order_new",
+      items: [{ beatId: "beat_1", price: 499 }],
+      totalAmount: 499,
+      receipt: "r1",
+    } as never);
+    vi.mocked(razorpay.orders.create).mockResolvedValueOnce({ id: "rzp_new" } as never);
+
+    await paymentService.createOrder(
+      { beatId: "beat_1", licenseId: "license_1" },
+      "buyer_1",
+      { source: "whatsapp", beatId: "beat_1" }
+    );
+
+    expect(orderRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attribution: { source: "whatsapp", beatId: "beat_1" },
+      })
+    );
+    expect(beatEventService.recordCheckoutStarts).toHaveBeenCalled();
+  });
+
+  it("uses direct when attribution is omitted", async () => {
+    vi.mocked(purchaseRepository.hasPurchased).mockResolvedValueOnce(false);
+    vi.mocked(orderRepository.findPendingByBuyerAndBeat).mockResolvedValueOnce(null);
+    vi.mocked(licenseRepository.findById).mockResolvedValueOnce({
+      _id: "license_1",
+      beatId: "beat_1",
+      isActive: true,
+      type: "basic",
+      price: 499,
+    } as never);
+    vi.mocked(beatRepository.findById).mockResolvedValueOnce({
+      _id: "beat_1",
+      title: "Fire",
+      isPublished: true,
+      status: "published",
+      producerId: "prod_1",
+    } as never);
+    vi.mocked(orderRepository.create).mockResolvedValueOnce({
+      _id: "order_new",
+      items: [{ beatId: "beat_1", price: 499 }],
+      totalAmount: 499,
+      receipt: "r1",
+    } as never);
+    vi.mocked(razorpay.orders.create).mockResolvedValueOnce({ id: "rzp_new" } as never);
+
+    await paymentService.createOrder(
+      { beatId: "beat_1", licenseId: "license_1" },
+      "buyer_1"
+    );
+
+    const payload = vi.mocked(orderRepository.create).mock.calls[0][0];
+    expect(payload.attribution).toBeUndefined();
   });
 
   it("returns idempotent success for already-paid order", async () => {
@@ -201,5 +365,93 @@ describe("paymentService", () => {
     expect(verifySignature).not.toHaveBeenCalled();
     expect(beatRepository.incrementSalesCount).not.toHaveBeenCalled();
     expect(licenseRepository.findById).not.toHaveBeenCalled();
+  });
+
+  describe("handleWebhookEvent", () => {
+    it("fulfills captured payments", async () => {
+      vi.mocked(orderRepository.findByRazorpayOrderId).mockResolvedValueOnce(
+        beatOrder("pending") as never
+      );
+      vi.mocked(fetchPaymentById).mockResolvedValueOnce(capturedPayment());
+      await mockSuccessfulBeatFulfill();
+
+      await paymentService.handleWebhookEvent({
+        event: "payment.captured",
+        payload: { payment: { entity: { id: "pay_wh", order_id: "rzp_wh" } } },
+      });
+
+      expect(orderRepository.markPaidIfPending).toHaveBeenCalled();
+    });
+
+    it("marks pending orders failed on payment.failed", async () => {
+      vi.mocked(orderRepository.findByRazorpayOrderId).mockResolvedValueOnce(
+        beatOrder("pending") as never
+      );
+
+      await paymentService.handleWebhookEvent({
+        event: "payment.failed",
+        payload: { payment: { entity: { id: "pay_wh", order_id: "rzp_wh" } } },
+      });
+
+      expect(orderRepository.updateStatus).toHaveBeenCalledWith(
+        "order_wh",
+        "failed",
+        expect.objectContaining({ razorpayPaymentId: "pay_wh" })
+      );
+    });
+  });
+
+  describe("fulfillFromWebhook", () => {
+    it("is a no-op when the order is already paid", async () => {
+      vi.mocked(orderRepository.findByRazorpayOrderId).mockResolvedValueOnce(
+        beatOrder("paid") as never
+      );
+
+      await paymentService.fulfillFromWebhook("rzp_wh", "pay_wh");
+
+      expect(fetchPaymentById).not.toHaveBeenCalled();
+      expect(orderRepository.markPaidIfPending).not.toHaveBeenCalled();
+    });
+
+    it("fulfills a pending order when the provider payment is captured", async () => {
+      vi.mocked(orderRepository.findByRazorpayOrderId).mockResolvedValueOnce(
+        beatOrder("pending") as never
+      );
+      vi.mocked(fetchPaymentById).mockResolvedValueOnce(capturedPayment());
+      await mockSuccessfulBeatFulfill();
+
+      await paymentService.fulfillFromWebhook("rzp_wh", "pay_wh");
+
+      expect(orderRepository.markPaidIfPending).toHaveBeenCalled();
+      expect(purchaseRepository.create).toHaveBeenCalled();
+      expect(cartRepository.clear).toHaveBeenCalledWith("buyer_1", expect.anything());
+    });
+
+    it("fulfills a failed order when capture wins over modal dismiss", async () => {
+      vi.mocked(orderRepository.findByRazorpayOrderId).mockResolvedValueOnce(
+        beatOrder("failed") as never
+      );
+      vi.mocked(fetchPaymentById).mockResolvedValueOnce(capturedPayment());
+      await mockSuccessfulBeatFulfill();
+
+      await paymentService.fulfillFromWebhook("rzp_wh", "pay_wh");
+
+      expect(orderRepository.markPaidIfPending).toHaveBeenCalled();
+      expect(purchaseRepository.create).toHaveBeenCalled();
+    });
+
+    it("does not fulfill when the captured amount does not match", async () => {
+      vi.mocked(orderRepository.findByRazorpayOrderId).mockResolvedValueOnce(
+        beatOrder("pending") as never
+      );
+      vi.mocked(fetchPaymentById).mockResolvedValueOnce({
+        ...capturedPayment(),
+        amount: 100,
+      });
+
+      await paymentService.fulfillFromWebhook("rzp_wh", "pay_wh");
+
+      expect(orderRepository.markPaidIfPending).not.toHaveBeenCalled();
+    });
   });
 });

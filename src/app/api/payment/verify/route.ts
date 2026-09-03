@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { paymentService } from "@/lib/services/payment.service";
+import { toCheckoutOrderDto } from "@/lib/serializers/order";
 import { verifyPaymentSchema } from "@/lib/validators/payment";
 import { formatErrorResponse, UnauthorizedError } from "@/lib/errors";
 import { getClientIp, rateLimit, rateLimitResponse } from "@/lib/rate-limit";
@@ -21,8 +22,7 @@ export async function POST(request: NextRequest) {
 
     return Response.json({
       success: true,
-      order: result.order,
-      purchases: result.purchases,
+      order: toCheckoutOrderDto(result.order),
     });
   } catch (error) {
     return formatErrorResponse(error);

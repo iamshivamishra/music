@@ -16,6 +16,14 @@ export const licenseRepository = {
     return License.find(query).sort({ price: 1 }).lean<ILicense[]>();
   },
 
+  async findActiveByBeatAndType(
+    beatId: string,
+    type: ILicense["type"]
+  ): Promise<ILicense | null> {
+    await connectDB();
+    return License.findOne({ beatId, type, isActive: true }).lean<ILicense>();
+  },
+
   async findById(id: string, options: RepoOptions = {}): Promise<ILicense | null> {
     await connectDB();
     return License.findById(id).session(options.session ?? null).lean<ILicense>();
@@ -95,6 +103,15 @@ export const licenseRepository = {
         entry._id.toString(),
         { price: entry.price, licenseId: entry.licenseId?.toString() ?? "" },
       ])
+    );
+  },
+
+  async deactivateAllForBeat(beatId: string, options: RepoOptions = {}): Promise<void> {
+    await connectDB();
+    await License.updateMany(
+      { beatId },
+      { isActive: false },
+      { session: options.session }
     );
   },
 };

@@ -1,24 +1,30 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { authService } from "@/lib/services/auth.service";
+import { invitationService } from "@/lib/services/invitation.service";
 import { formatErrorResponse, UnauthorizedError } from "@/lib/errors";
-import { z } from "zod";
-
-const onboardingSchema = z.object({
-  role: z.enum(["buyer", "producer"], {
-    error: "Role must be either buyer or producer",
-  }),
-});
+import { onboardingSchema } from "@/lib/validators/auth";
+import { rateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await rateLimit(ip, { limit: 5, windowSec: 60, prefix: "onboarding" });
+    if (!rl.success) return rateLimitResponse(rl.resetAt);
+
     const session = await auth();
     if (!session?.user) throw new UnauthorizedError();
 
     const body = await request.json();
-    const { role } = onboardingSchema.parse(body);
+    const { role, inviteToken } = onboardingSchema.parse(body);
 
-    const user = await authService.setRole(session.user.id, role);
+    if (inviteToken) {
+      await invitationService.accept(inviteToken, session.user.id);
+    } else {
+      await authService.setRole(session.user.id, role);
+    }
+
+    const user = await authService.getProfile(session.user.id);
 
     return Response.json({
       user: {

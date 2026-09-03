@@ -6,7 +6,7 @@ const LicenseSchema = new Schema<ILicense>(
     beatId: { type: Schema.Types.ObjectId, ref: "Beat", required: true },
     type: {
       type: String,
-      enum: ["basic", "premium", "unlimited"],
+      enum: ["basic", "premium", "unlimited", "exclusive"],
       required: true,
     },
     name: { type: String, required: true, trim: true },

@@ -13,7 +13,9 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 const NAV_LINKS = [
   { href: "/beats", label: "Browse" },
-  { href: "/about", label: "About" },
+  { href: "/beat-packs", label: "Packs" },
+  { href: "/charts", label: "Charts" },
+  { href: "/sell", label: "Sell" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -36,7 +38,7 @@ export default function Navbar() {
             className="h-5 w-5"
             priority
           />
-          <span>Test Mode</span>
+          <span>Trishul Beats</span>
         </Link>
 
         <div className="hidden items-center gap-1 md:flex">
