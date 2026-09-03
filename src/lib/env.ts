@@ -57,5 +57,17 @@ const envSchema = z.object({
   HMAC_LICENSE_SECRET: z.string().optional(),
 });
 
-// Only validate on server
-export const env = envSchema.parse(process.env);
+export type Env = z.infer<typeof envSchema>;
+
+let _env: Env | null = null;
+
+/**
+ * Lazily validated environment variables. Parses on first call, caches result.
+ * Only call from server-side code — will throw in client/edge contexts.
+ */
+export function env(): Env {
+  if (!_env) {
+    _env = envSchema.parse(process.env);
+  }
+  return _env;
+}
